@@ -47,7 +47,22 @@ class StageRunner:
 
             kb_context: dict[str, str] = {}
             for kb_file in stage_def.pre_kb_load:
-                kb_context[kb_file] = f"[KB: {kb_file}] (stub)"
+                # Try to load KB content for this file
+                from sdlc.utils.paths import project_root
+
+                try:
+                    kb_root = project_root() / "doc" / "kb"
+                except Exception:
+                    kb_root = None
+                if kb_root and (kb_root / kb_file).exists():
+                    try:
+                        kb_context[kb_file] = (kb_root / kb_file).read_text(encoding="utf-8")[
+                            :5000
+                        ]  # Truncate to avoid context overflow
+                    except Exception:
+                        kb_context[kb_file] = f"[KB: {kb_file}] (could not read)"
+                else:
+                    kb_context[kb_file] = f"[KB: {kb_file}] (not found)"
 
             for art_name in stage_def.required_artifacts:
                 existing = self.state.list_artifacts(pipeline_id)
@@ -55,7 +70,32 @@ class StageRunner:
                 if not found:
                     pass
 
+            # Load applicable rules for this stage
             rules_context: list[dict[str, str]] = []
+            try:
+                from sdlc.rule.engine import RuleEngine
+                from sdlc.rule.models import RuleLevel
+                from sdlc.utils.paths import project_root as _project_root
+
+                rule_engine = RuleEngine()
+                rules_dir = _project_root() / "doc" / "kb" / "rules"
+                if rules_dir.exists():
+                    for f in rules_dir.glob("*.yaml"):
+                        rule_engine.load_from_yaml(f)
+                rules_context = [
+                    {
+                        "id": r.id,
+                        "level": r.level.value,
+                        "description": r.description,
+                        "message": r.message or "",
+                    }
+                    for r in rule_engine.for_stage(stage_def.id)
+                    if r.level
+                    in (RuleLevel.MUST, RuleLevel.MUST_NOT, RuleLevel.SHOULD, RuleLevel.SHOULD_NOT)
+                ]
+            except Exception:
+                # If rule loading fails, continue with empty rules context
+                pass
 
             if stage_def.subagent:
                 task = SubagentTask(

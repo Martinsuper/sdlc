@@ -57,6 +57,8 @@ def run(
     tag,
 ):
     """Execute an SDLC pipeline."""
+    import asyncio
+    import sys
     from pathlib import Path
 
     from sdlc.core.entry_detector import EntryDetector
@@ -75,8 +77,6 @@ def run(
             raise SystemExit(1)
         raw_input = path.read_text()
     elif input == "-":
-        import sys
-
         raw_input = sys.stdin.read()
 
     # Detect entry kind
@@ -101,5 +101,33 @@ def run(
         click.echo(f"  Stages would run based on profile '{profile}'")
         return
 
-    click.echo("\nPipeline execution requires LLM integration (M2).")
-    click.echo("Use 'sdlc status' to check pipeline states.")
+    click.echo("\nStarting SDLC pipeline...")
+
+    try:
+        from sdlc.cli.deps import build_deps
+
+        deps = build_deps()
+        # Override max cost if specified
+        if max_cost:
+            deps.cost_tracker.max_budget = max_cost
+
+        result = asyncio.run(
+            deps.coordinator.run(
+                input_text=raw_input,
+                profile_id=profile if profile != "auto" else None,
+                adapter_id=adapter,
+            )
+        )
+
+        click.echo(f"\nPipeline {'completed' if result.status == 'completed' else result.status}")
+        click.echo(f"  Stages: {len(result.stage_results)}")
+        click.echo(f"  Cost: ${result.total_cost_usd:.4f}")
+
+    except KeyboardInterrupt:
+        click.echo("\nPipeline interrupted by user")
+        raise SystemExit(9) from None
+    except SystemExit:
+        raise
+    except Exception as e:
+        click.echo(f"\nError: {e}", err=True)
+        raise SystemExit(1) from None

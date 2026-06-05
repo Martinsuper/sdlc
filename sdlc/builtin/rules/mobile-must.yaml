@@ -1,0 +1,35 @@
+- id: no-hardcoded-urls
+  level: MUST
+  category: security
+  description: "禁止硬编码 API 地址"
+  enforcer: cr
+  pattern: "https?://[^\\s\"']+"
+  message: "禁止硬编码 URL，请使用配置管理"
+  action: block
+  severity: P1
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: no-main-thread-io
+  level: MUST
+  category: performance
+  description: "禁止在主线程执行 IO 操作"
+  enforcer: cr
+  pattern: "(AsyncTask|doInBackground|Dispatchers\\.Main)"
+  message: "禁止在主线程执行 IO 操作，请使用异步方式"
+  action: block
+  severity: P1
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: no-sensitive-logging
+  level: MUST
+  category: security
+  description: "禁止打印敏感信息到日志"
+  enforcer: cr
+  pattern: "(Log\\.(d|e|i|v|w)|print|NSLog|debugPrint)\\(.*(password|token|secret)"
+  message: "禁止将敏感信息打印到日志"
+  action: block
+  severity: P0
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []

@@ -1,0 +1,11 @@
+id: revert
+name: 回滚
+entry_kinds: [revert]
+base_stages:
+  - s-clarify
+  - s-deploy
+skip_stages:
+  - s-design
+  - s-impl-backend
+extra_stages: []
+severity: P0

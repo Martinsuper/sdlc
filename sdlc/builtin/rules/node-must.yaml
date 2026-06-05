@@ -1,0 +1,35 @@
+- id: no-console-log
+  level: SHOULD
+  category: logging
+  description: "禁止使用 console.log，应使用日志框架"
+  enforcer: cr
+  pattern: "console\\.log\\("
+  message: "请使用日志框架而非 console.log"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-sync-fs
+  level: MUST
+  category: performance
+  description: "禁止使用同步文件操作"
+  enforcer: cr
+  pattern: "fs\\.(readFileSync|writeFileSync|appendFileSync|unlinkSync)"
+  message: "禁止使用同步文件操作，请使用 fs.promises 或回调版本"
+  action: block
+  severity: P1
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-process-exit
+  level: MUST
+  category: reliability
+  description: "禁止在库代码中使用 process.exit()"
+  enforcer: cr
+  pattern: "process\\.exit\\("
+  message: "禁止使用 process.exit()，请使用优雅关闭方式"
+  action: block
+  severity: P1
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []

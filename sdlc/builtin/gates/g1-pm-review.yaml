@@ -1,0 +1,10 @@
+id: G1-pm-review
+name: PM Review
+trigger: always
+after_stages: [s-clarify]
+reviewer_role: PM
+deadline_hours: 4
+severity_required: [P0, P1, P2]
+actions:
+  - check: prd_completeness
+auto_fail_if: null

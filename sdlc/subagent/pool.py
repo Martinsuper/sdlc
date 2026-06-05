@@ -149,6 +149,10 @@ class SubagentPool:
                 return f"Error writing {path}: {e}"
         elif tool_name == "ask_user":
             question = tool_input.get("question", "")
-            return f"[User would be asked: {question}] (stub)"
+            return (
+                f"[Interaction paused: {question}]\n"
+                "Note: Interactive user input is not available in this mode. "
+                "Please provide the answer in the task context."
+            )
         else:
             return f"Error: tool '{tool_name}' not implemented yet"

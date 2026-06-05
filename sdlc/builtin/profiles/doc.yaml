@@ -1,0 +1,11 @@
+id: doc
+name: 文档
+entry_kinds: [doc]
+base_stages:
+  - s-clarify
+skip_stages:
+  - s-design
+  - s-impl-backend
+  - s-deploy
+extra_stages: []
+severity: P3

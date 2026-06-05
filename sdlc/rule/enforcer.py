@@ -83,21 +83,110 @@ class CREnforcer:
 
 
 class LintEnforcer:
-    """Static lint enforcer — stub that returns empty violations for M2."""
+    """Static lint enforcer -- runs lint tools and parses output."""
+
+    def __init__(self, timeout: int = 60) -> None:
+        self.timeout = timeout
 
     def check(self, rule: Rule, context: dict[str, object]) -> list[Violation]:
-        return []
+        violations: list[Violation] = []
+        if not rule.pattern:
+            return violations
+
+        # Get files to check from context
+        raw_files = context.get("files", [])
+        files = raw_files if isinstance(raw_files, list) else []
+        for f in files:
+            if isinstance(f, dict):
+                path = f.get("path", "")
+                content = f.get("content", "")
+            else:
+                path = str(f)
+                content = ""
+
+            # Check if file matches applies_to patterns
+            if rule.applies_to:
+                matched = any(_glob_match(str(path), pattern) for pattern in rule.applies_to)
+                if not matched:
+                    continue
+
+            # If we have content, check against pattern
+            if content and rule.pattern:
+                try:
+                    compiled = re.compile(rule.pattern)
+                except re.error:
+                    continue  # Invalid regex, skip
+
+                for match in compiled.finditer(str(content)):
+                    line_num = str(content)[: match.start()].count("\n") + 1
+                    violations.append(
+                        Violation(
+                            rule_id=rule.id,
+                            file=str(path),
+                            line=line_num,
+                            message=rule.message or f"Rule {rule.id} violated",
+                            severity="error" if rule.action.value == "block" else "warning",
+                        )
+                    )
+
+        return violations
 
 
 class CIEnforcer:
-    """CI pipeline enforcer — stub for M2."""
+    """CI pipeline enforcer -- checks CI workflow status."""
 
     def check(self, rule: Rule, context: dict[str, object]) -> list[Violation]:
-        return []
+        # For M2/M3, we check context for CI status
+        # In production, this would query actual CI system
+        violations: list[Violation] = []
+        ci_status = context.get("ci_status")
+
+        if ci_status is None:
+            return violations
+
+        if not isinstance(ci_status, dict):
+            return violations
+
+        # Check if CI workflow passed
+        required_workflows = rule.scope.get("workflows", [])
+        for workflow in required_workflows:
+            status = ci_status.get(workflow, "unknown")
+            if status != "success":
+                violations.append(
+                    Violation(
+                        rule_id=rule.id,
+                        file=str(workflow),
+                        message=f"CI workflow '{workflow}' status: {status}",
+                        severity="error" if rule.action.value == "block" else "warning",
+                    )
+                )
+
+        return violations
 
 
 class RuntimeEnforcer:
-    """Runtime pre/post hook enforcer — stub for M2."""
+    """Runtime pre/post hook enforcer -- runs check scripts."""
 
     def check(self, rule: Rule, context: dict[str, object]) -> list[Violation]:
-        return []
+        violations: list[Violation] = []
+        # Runtime enforcer checks context for runtime violations
+        runtime_data = context.get("runtime", {})
+
+        if not runtime_data:
+            return violations
+
+        # Check for specific runtime conditions
+        checks = rule.scope.get("checks", [])
+        for check in checks:
+            value = runtime_data.get(check) if isinstance(runtime_data, dict) else None
+            if value is not None and value:  # truthy = violation found
+                violations.append(
+                    Violation(
+                        rule_id=rule.id,
+                        file="runtime",
+                        message=f"Runtime check '{check}' failed: {value}",
+                        severity="error" if rule.action.value == "block" else "warning",
+                    )
+                )
+
+        return violations

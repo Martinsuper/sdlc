@@ -1,0 +1,35 @@
+- id: no-unwrap-in-prod
+  level: MUST
+  category: error-handling
+  description: "禁止在生产代码中使用 unwrap()"
+  enforcer: cr
+  pattern: "\\.unwrap\\(\\)"
+  message: "禁止在生产代码中使用 unwrap()，请使用 match 或 ? 操作符"
+  action: block
+  severity: P1
+  applies_to: ["**/*.rs"]
+  references: []
+
+- id: no-unsafe
+  level: MUST
+  category: safety
+  description: "禁止使用 unsafe 块"
+  enforcer: cr
+  pattern: "unsafe\\s*\\{"
+  message: "禁止使用 unsafe 块，除非有充分理由并在注释中说明"
+  action: block
+  severity: P0
+  applies_to: ["**/*.rs"]
+  references: []
+
+- id: no-clone-on-large
+  level: SHOULD
+  category: performance
+  description: "避免对大结构体使用 clone()"
+  enforcer: cr
+  pattern: "\\.clone\\(\\)"
+  message: "避免不必要的 clone()，考虑使用引用或 Arc"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.rs"]
+  references: []

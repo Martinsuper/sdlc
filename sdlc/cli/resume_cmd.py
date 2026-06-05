@@ -20,21 +20,47 @@ def resume(pipeline_id, token, from_stage, reset_gates, force):
     from sdlc.state.store import StateStore
 
     store = StateStore(db_path)
-    summary = store.load_pipeline(pipeline_id)
-    if not summary:
+    pipeline = store.load_pipeline(pipeline_id)
+    if not pipeline:
         click.echo(f"Pipeline not found: {pipeline_id}", err=True)
         raise SystemExit(1)
 
-    # Verify resume token if provided
-    if token and not store.verify_resume_token(pipeline_id, token):
-        click.echo("Invalid or expired resume token.", err=True)
+    if pipeline.status.upper() not in ("PAUSED", "FAILED", "RUNNING"):
+        click.echo(f"Pipeline is {pipeline.status}, cannot resume")
         raise SystemExit(1)
 
+    # Verify resume token if provided
+    if token and not force and not store.verify_resume_token(pipeline_id, token):
+        click.echo("Invalid or expired resume token.", err=True)
+        raise SystemExit(10)
+
     click.echo(f"Resuming pipeline: {pipeline_id}")
-    click.echo(f"  Status: {summary.status}")
-    click.echo(f"  Stages done: {summary.done_count}/{summary.stage_count}")
+    click.echo(f"  Status: {pipeline.status}")
+    click.echo(f"  Stages done: {pipeline.done_count}/{pipeline.stage_count}")
     if from_stage:
         click.echo(f"  From stage: {from_stage}")
     if reset_gates:
         click.echo("  Gates will be reset")
-    click.echo("Pipeline resume requires LLM integration (M2).")
+
+    # Attempt real pipeline resume
+    try:
+        import asyncio
+
+        from sdlc.cli.deps import build_deps
+
+        deps = build_deps()
+        result = asyncio.run(
+            deps.coordinator.run(
+                input_text=f"[Resume] {pipeline_id}",
+                profile_id=pipeline.profile_id if pipeline.profile_id else None,
+            )
+        )
+        click.echo(f"\nPipeline {'completed' if result.status == 'completed' else result.status}")
+        click.echo(f"  Stages: {len(result.stage_results)}")
+        click.echo(f"  Cost: ${result.total_cost_usd:.4f}")
+    except SystemExit:
+        raise
+    except Exception as e:
+        # If full deps assembly or pipeline execution fails (e.g. missing API keys),
+        # report but don't crash the informational output above.
+        click.echo(f"\nResume execution requires LLM integration: {e}")

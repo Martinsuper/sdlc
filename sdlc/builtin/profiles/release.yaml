@@ -1,0 +1,13 @@
+id: release
+name: 发布
+entry_kinds: [release]
+base_stages:
+  - s-clarify
+  - s-package
+  - s-deploy
+  - s-monitor-setup
+skip_stages:
+  - s-design
+  - s-impl-backend
+extra_stages: []
+severity: P1

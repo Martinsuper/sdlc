@@ -1,0 +1,8 @@
+id: idea
+name: 想法
+entry_kinds: [idea]
+base_stages:
+  - s-clarify
+skip_stages: []
+extra_stages: []
+severity: P3

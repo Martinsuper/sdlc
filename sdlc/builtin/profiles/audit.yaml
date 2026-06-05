@@ -1,0 +1,12 @@
+id: audit
+name: 审计
+entry_kinds: [audit]
+base_stages:
+  - s-clarify
+  - s-cr
+skip_stages:
+  - s-design
+  - s-impl-backend
+  - s-deploy
+extra_stages: []
+severity: P1

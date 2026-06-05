@@ -256,24 +256,231 @@ class TestCREnforcer:
 
 
 class TestLintEnforcer:
-    def test_returns_empty(self) -> None:
+    def test_no_pattern(self) -> None:
+        rule = _make_rule(pattern=None)
+        enforcer = LintEnforcer()
+        assert enforcer.check(rule, {"files": []}) == []
+
+    def test_no_files(self) -> None:
         rule = _make_rule()
         enforcer = LintEnforcer()
         assert enforcer.check(rule, {}) == []
 
+    def test_dict_files_with_match(self) -> None:
+        rule = _make_rule(pattern=r"bad\(\)")
+        enforcer = LintEnforcer()
+        ctx = {"files": [{"path": "src/main.py", "content": "result = bad()"}]}
+        violations = enforcer.check(rule, ctx)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "TEST-RULE"
+        assert violations[0].file == "src/main.py"
+        assert violations[0].line == 1
+
+    def test_dict_files_no_match(self) -> None:
+        rule = _make_rule(pattern=r"bad\(\)")
+        enforcer = LintEnforcer()
+        ctx = {"files": [{"path": "src/main.py", "content": "result = good()"}]}
+        assert enforcer.check(rule, ctx) == []
+
+    def test_applies_to_filter_match(self) -> None:
+        rule = _make_rule(pattern=r"bad\(\)", applies_to=["*.java"])
+        enforcer = LintEnforcer()
+        ctx = {"files": [{"path": "src/Main.java", "content": "bad()"}]}
+        violations = enforcer.check(rule, ctx)
+        assert len(violations) == 1
+
+    def test_applies_to_filter_no_match(self) -> None:
+        rule = _make_rule(pattern=r"bad\(\)", applies_to=["*.java"])
+        enforcer = LintEnforcer()
+        ctx = {"files": [{"path": "src/main.py", "content": "bad()"}]}
+        assert enforcer.check(rule, ctx) == []
+
+    def test_string_files_no_content(self) -> None:
+        rule = _make_rule(pattern=r"bad\(\)")
+        enforcer = LintEnforcer()
+        ctx = {"files": ["src/main.py"]}
+        # String files have no content, so no violations
+        assert enforcer.check(rule, ctx) == []
+
+    def test_invalid_regex_skipped(self) -> None:
+        rule = _make_rule(pattern="[invalid")
+        enforcer = LintEnforcer()
+        ctx = {"files": [{"path": "a.py", "content": "bad()"}]}
+        assert enforcer.check(rule, ctx) == []
+
+    def test_multiple_matches(self) -> None:
+        rule = _make_rule(pattern=r"bad\(\)")
+        enforcer = LintEnforcer()
+        ctx = {"files": [{"path": "a.py", "content": "x = bad()\ny = bad()"}]}
+        violations = enforcer.check(rule, ctx)
+        assert len(violations) == 2
+
+    def test_block_action_produces_error_severity(self) -> None:
+        rule = _make_rule(action=RuleAction.BLOCK)
+        enforcer = LintEnforcer()
+        ctx = {"files": [{"path": "a.py", "content": "bad()"}]}
+        violations = enforcer.check(rule, ctx)
+        assert len(violations) == 1
+        assert violations[0].severity == "error"
+
+    def test_warn_action_produces_warning_severity(self) -> None:
+        rule = _make_rule(action=RuleAction.WARN)
+        enforcer = LintEnforcer()
+        ctx = {"files": [{"path": "a.py", "content": "bad()"}]}
+        violations = enforcer.check(rule, ctx)
+        assert len(violations) == 1
+        assert violations[0].severity == "warning"
+
+    def test_default_message(self) -> None:
+        rule = _make_rule(message=None)
+        enforcer = LintEnforcer()
+        ctx = {"files": [{"path": "a.py", "content": "bad()"}]}
+        violations = enforcer.check(rule, ctx)
+        assert len(violations) == 1
+        assert violations[0].message == "Rule TEST-RULE violated"
+
+    def test_timeout_default(self) -> None:
+        enforcer = LintEnforcer()
+        assert enforcer.timeout == 60
+
+    def test_timeout_custom(self) -> None:
+        enforcer = LintEnforcer(timeout=120)
+        assert enforcer.timeout == 120
+
 
 class TestCIEnforcer:
-    def test_returns_empty(self) -> None:
+    def test_no_ci_status(self) -> None:
         rule = _make_rule()
         enforcer = CIEnforcer()
         assert enforcer.check(rule, {}) == []
 
+    def test_empty_ci_status(self) -> None:
+        rule = _make_rule()
+        enforcer = CIEnforcer()
+        assert enforcer.check(rule, {"ci_status": {}}) == []
+
+    def test_workflow_success(self) -> None:
+        rule = _make_rule(scope={"workflows": ["build", "test"]})
+        enforcer = CIEnforcer()
+        ctx = {"ci_status": {"build": "success", "test": "success"}}
+        assert enforcer.check(rule, ctx) == []
+
+    def test_workflow_failed(self) -> None:
+        rule = _make_rule(scope={"workflows": ["build"]})
+        enforcer = CIEnforcer()
+        ctx = {"ci_status": {"build": "failed"}}
+        violations = enforcer.check(rule, ctx)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "TEST-RULE"
+        assert violations[0].file == "build"
+        assert "failed" in violations[0].message
+
+    def test_workflow_unknown(self) -> None:
+        rule = _make_rule(scope={"workflows": ["deploy"]})
+        enforcer = CIEnforcer()
+        ctx = {"ci_status": {}}  # deploy not in ci_status
+        violations = enforcer.check(rule, ctx)
+        assert len(violations) == 1
+        assert "unknown" in violations[0].message
+
+    def test_multiple_workflows_partial(self) -> None:
+        rule = _make_rule(scope={"workflows": ["build", "deploy"]})
+        enforcer = CIEnforcer()
+        ctx = {"ci_status": {"build": "success", "deploy": "failed"}}
+        violations = enforcer.check(rule, ctx)
+        assert len(violations) == 1
+        assert violations[0].file == "deploy"
+
+    def test_block_action_error_severity(self) -> None:
+        rule = _make_rule(action=RuleAction.BLOCK, scope={"workflows": ["ci"]})
+        enforcer = CIEnforcer()
+        ctx = {"ci_status": {"ci": "failed"}}
+        violations = enforcer.check(rule, ctx)
+        assert violations[0].severity == "error"
+
+    def test_warn_action_warning_severity(self) -> None:
+        rule = _make_rule(action=RuleAction.WARN, scope={"workflows": ["ci"]})
+        enforcer = CIEnforcer()
+        ctx = {"ci_status": {"ci": "failed"}}
+        violations = enforcer.check(rule, ctx)
+        assert violations[0].severity == "warning"
+
+    def test_no_workflows_in_scope(self) -> None:
+        rule = _make_rule(scope={})
+        enforcer = CIEnforcer()
+        ctx = {"ci_status": {"build": "failed"}}
+        assert enforcer.check(rule, ctx) == []
+
 
 class TestRuntimeEnforcer:
-    def test_returns_empty(self) -> None:
+    def test_no_runtime_data(self) -> None:
         rule = _make_rule()
         enforcer = RuntimeEnforcer()
         assert enforcer.check(rule, {}) == []
+
+    def test_empty_runtime_data(self) -> None:
+        rule = _make_rule()
+        enforcer = RuntimeEnforcer()
+        assert enforcer.check(rule, {"runtime": {}}) == []
+
+    def test_check_passed(self) -> None:
+        rule = _make_rule(scope={"checks": ["memory_leak"]})
+        enforcer = RuntimeEnforcer()
+        ctx = {"runtime": {"memory_leak": False}}
+        # False is falsy, so no violation
+        assert enforcer.check(rule, ctx) == []
+
+    def test_check_failed_truthy(self) -> None:
+        rule = _make_rule(scope={"checks": ["memory_leak"]})
+        enforcer = RuntimeEnforcer()
+        ctx = {"runtime": {"memory_leak": True}}
+        violations = enforcer.check(rule, ctx)
+        assert len(violations) == 1
+        assert violations[0].rule_id == "TEST-RULE"
+        assert violations[0].file == "runtime"
+        assert "memory_leak" in violations[0].message
+
+    def test_check_failed_string_value(self) -> None:
+        rule = _make_rule(scope={"checks": ["segfault"]})
+        enforcer = RuntimeEnforcer()
+        ctx = {"runtime": {"segfault": "core dinternal-monitoringed at line 42"}}
+        violations = enforcer.check(rule, ctx)
+        assert len(violations) == 1
+        assert "core dinternal-monitoringed" in violations[0].message
+
+    def test_multiple_checks(self) -> None:
+        rule = _make_rule(scope={"checks": ["memory_leak", "null_ptr", "race_condition"]})
+        enforcer = RuntimeEnforcer()
+        ctx = {"runtime": {"memory_leak": True, "null_ptr": False, "race_condition": "detected"}}
+        violations = enforcer.check(rule, ctx)
+        assert len(violations) == 2  # memory_leak and race_condition
+
+    def test_check_not_in_runtime_data(self) -> None:
+        rule = _make_rule(scope={"checks": ["missing_check"]})
+        enforcer = RuntimeEnforcer()
+        ctx = {"runtime": {"other_check": True}}
+        # missing_check is not in runtime_data, so no violation
+        assert enforcer.check(rule, ctx) == []
+
+    def test_block_action_error_severity(self) -> None:
+        rule = _make_rule(action=RuleAction.BLOCK, scope={"checks": ["leak"]})
+        enforcer = RuntimeEnforcer()
+        ctx = {"runtime": {"leak": True}}
+        violations = enforcer.check(rule, ctx)
+        assert violations[0].severity == "error"
+
+    def test_warn_action_warning_severity(self) -> None:
+        rule = _make_rule(action=RuleAction.WARN, scope={"checks": ["leak"]})
+        enforcer = RuntimeEnforcer()
+        ctx = {"runtime": {"leak": True}}
+        violations = enforcer.check(rule, ctx)
+        assert violations[0].severity == "warning"
+
+    def test_no_checks_in_scope(self) -> None:
+        rule = _make_rule(scope={})
+        enforcer = RuntimeEnforcer()
+        ctx = {"runtime": {"leak": True}}
+        assert enforcer.check(rule, ctx) == []
 
 
 # ---------------------------------------------------------------------------

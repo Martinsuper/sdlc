@@ -578,9 +578,9 @@ class Scanner:
     def _stage6_ai_analysis(self, ctx: ScanContext) -> None:
         """Try LLM analysis; skip gracefully if unavailable."""
         try:
-            from sdlc.llm.client import MultiLLMClient  # verify import works
-
-            MultiLLMClient  # reference only — don't instantiate without API keys
+            import importlib.util
+            if not importlib.util.find_spec("sdlc.llm.client"):
+                raise ImportError("sdlc.llm.client not found")
             summary = f"Project at {ctx.root}: languages={ctx.languages}, "
             summary += f"frameworks={ctx.frameworks}, build_tools={ctx.build_tools}"
             ctx.ai_summary = summary

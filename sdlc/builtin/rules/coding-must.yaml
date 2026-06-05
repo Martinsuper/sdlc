@@ -1,0 +1,35 @@
+- id: no-thread-sleep
+  level: MUST
+  category: coding
+  description: "禁止使用 Thread.sleep 阻塞主线程"
+  enforcer: cr
+  pattern: "Thread\\.sleep"
+  message: "禁止使用 Thread.sleep；请用调度器"
+  action: block
+  severity: P1
+  applies_to: ["**/*.java"]
+  references: []
+
+- id: no-system-out
+  level: SHOULD
+  category: logging
+  description: "禁止使用 System.out，应使用日志框架"
+  enforcer: cr
+  pattern: "System\\.(out|err)\\.print"
+  message: "请使用日志框架而非 System.out/err"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.java"]
+  references: []
+
+- id: no-hardcoded-secrets
+  level: MUST
+  category: security
+  description: "禁止硬编码密钥和密码"
+  enforcer: cr
+  pattern: "(password|secret|api_key|apikey)\\s*=\\s*[\"'][^\"']+[\"']"
+  message: "检测到硬编码密钥，请使用环境变量或配置中心"
+  action: block
+  severity: P0
+  applies_to: ["**/*.java", "**/*.py", "**/*.js", "**/*.ts", "**/*.go"]
+  references: []

@@ -1,0 +1,35 @@
+- id: no-collect-action
+  level: MUST
+  category: performance
+  description: "禁止在 Spark 中使用 collect() 获取全量数据到 Driver"
+  enforcer: cr
+  pattern: "\\.collect\\(\\)"
+  message: "禁止使用 collect() 将全量数据拉到 Driver，请使用 take() 或写入存储"
+  action: block
+  severity: P1
+  applies_to: ["**/*.py", "**/*.scala", "**/*.java"]
+  references: []
+
+- id: no-shuffle-without-partition
+  level: SHOULD
+  category: performance
+  description: "Shuffle 操作前应指定分区数"
+  enforcer: cr
+  pattern: "\\.(groupBy|reduceByKey|join|cogroup)\\("
+  message: "请在 Shuffle 操作中指定分区数以避免性能问题"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.py", "**/*.scala", "**/*.java"]
+  references: []
+
+- id: no-cache-without-action
+  level: SHOULD
+  category: performance
+  description: "cache() 后必须有 action 触发"
+  enforcer: cr
+  pattern: "\\.cache\\(\\)"
+  message: "cache() 后必须有 action 操作才会真正缓存，请确认使用方式"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.py", "**/*.scala", "**/*.java"]
+  references: []

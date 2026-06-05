@@ -1,0 +1,35 @@
+- id: no-bare-except
+  level: MUST
+  category: error-handling
+  description: "禁止使用 bare except，必须指定异常类型"
+  enforcer: cr
+  pattern: "except\\s*:"
+  message: "请指定具体异常类型，不要使用 bare except"
+  action: block
+  severity: P2
+  applies_to: ["**/*.py"]
+  references: []
+
+- id: no-eval
+  level: MUST
+  category: security
+  description: "禁止使用 eval()"
+  enforcer: cr
+  pattern: "\\beval\\s*\\("
+  message: "eval() 存在安全风险，请使用 ast.literal_eval 或其他替代"
+  action: block
+  severity: P0
+  applies_to: ["**/*.py"]
+  references: []
+
+- id: no-mutable-default-args
+  level: MUST
+  category: coding
+  description: "禁止使用可变对象作为函数默认参数"
+  enforcer: cr
+  pattern: "def\\s+\\w+\\s*\\(.*=\\s*\\[|def\\s+\\w+\\s*\\(.*=\\s*\\{"
+  message: "不要使用可变对象作为函数默认参数，请使用 None 代替"
+  action: block
+  severity: P1
+  applies_to: ["**/*.py"]
+  references: []

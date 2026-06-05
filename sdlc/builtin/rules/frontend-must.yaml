@@ -1,0 +1,35 @@
+- id: no-inline-styles
+  level: SHOULD
+  category: styling
+  description: "禁止使用内联样式，应使用 CSS 类"
+  enforcer: cr
+  pattern: "style=\\{"
+  message: "请使用 CSS 类或 styled-components 而非内联样式"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.jsx", "**/*.tsx", "**/*.vue"]
+  references: []
+
+- id: no-direct-dom-access
+  level: MUST
+  category: framework
+  description: "禁止直接操作 DOM"
+  enforcer: cr
+  pattern: "document\\.(getElementById|querySelector|innerHTML)"
+  message: "禁止直接操作 DOM，请使用框架提供的响应式方式"
+  action: block
+  severity: P1
+  applies_to: ["**/*.jsx", "**/*.tsx", "**/*.vue"]
+  references: []
+
+- id: no-any-type
+  level: MUST
+  category: typescript
+  description: "禁止使用 any 类型"
+  enforcer: cr
+  pattern: ":\\s*any[\\s,);\\]]"
+  message: "禁止使用 any 类型，请定义具体类型"
+  action: block
+  severity: P2
+  applies_to: ["**/*.ts", "**/*.tsx"]
+  references: []

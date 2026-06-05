@@ -1,0 +1,10 @@
+id: G5-hotfix-emergency
+name: Hotfix Emergency Gate
+trigger: on_severity
+after_stages: [s-impl-backend]
+reviewer_role: SRE
+deadline_hours: 1
+severity_required: [P0]
+actions:
+  - check: hotfix_validation
+auto_fail_if: null

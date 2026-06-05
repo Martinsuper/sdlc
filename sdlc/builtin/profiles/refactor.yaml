@@ -1,0 +1,14 @@
+id: refactor
+name: 重构
+entry_kinds: [refactor]
+base_stages:
+  - s-clarify
+  - s-design
+  - s-impl-backend
+  - s-unit-test
+  - s-cr
+  - s-package
+  - s-deploy
+skip_stages: []
+extra_stages: []
+severity: P2

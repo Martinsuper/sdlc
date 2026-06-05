@@ -1,0 +1,35 @@
+- id: no-hardcoded-ips
+  level: MUST
+  category: security
+  description: "禁止在基础设施代码中硬编码 IP 地址"
+  enforcer: cr
+  pattern: "\\b\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\b"
+  message: "禁止硬编码 IP 地址，请使用 DNS 或变量引用"
+  action: block
+  severity: P1
+  applies_to: ["**/*.tf", "**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: no-latest-tag
+  level: MUST
+  category: reliability
+  description: "禁止使用 latest 镜像标签"
+  enforcer: cr
+  pattern: "image\\s*=.*:latest"
+  message: "禁止使用 :latest 标签，请指定具体版本号"
+  action: block
+  severity: P1
+  applies_to: ["**/*.tf", "**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: must-tag-resources
+  level: SHOULD
+  category: governance
+  description: "基础设施资源必须添加标签"
+  enforcer: cr
+  pattern: "resource\\s+\"\\w+\"\\s+\"\\w+\"\\s*\\{"
+  message: "请为基础设施资源添加 tags 标签以便管理"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.tf"]
+  references: []

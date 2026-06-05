@@ -1,0 +1,35 @@
+- id: no-panic-in-lib
+  level: MUST
+  category: error-handling
+  description: "禁止在库代码中使用 panic"
+  enforcer: cr
+  pattern: "panic\\("
+  message: "禁止在库代码中使用 panic，请返回 error"
+  action: block
+  severity: P1
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: must-check-error
+  level: MUST
+  category: error-handling
+  description: "必须检查 error 返回值"
+  enforcer: cr
+  pattern: "(?<!if\\s)\\w+\\(.*\\)\\s*;(?!\\s*if\\s+err)"
+  message: "必须检查函数返回的 error，不要忽略它"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: no-global-vars
+  level: SHOULD
+  category: design
+  description: "避免使用全局变量"
+  enforcer: cr
+  pattern: "^var\\s+\\w+\\s+"
+  message: "避免使用包级全局变量，考虑使用依赖注入"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.go"]
+  references: []
