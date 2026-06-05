@@ -57,4 +57,49 @@ def run(
     tag,
 ):
     """Execute an SDLC pipeline."""
-    click.echo(f"TODO: implement run | input={input} profile={profile} severity={severity}")
+    from pathlib import Path
+
+    from sdlc.core.entry_detector import EntryDetector
+    from sdlc.core.models import EntryKind
+
+    # Read input
+    if not input:
+        click.echo("Error: Please provide input (text, @file, or - for stdin)", err=True)
+        raise SystemExit(1)
+
+    raw_input = input
+    if input.startswith("@"):
+        path = Path(input[1:])
+        if not path.exists():
+            click.echo(f"File not found: {path}", err=True)
+            raise SystemExit(1)
+        raw_input = path.read_text()
+    elif input == "-":
+        import sys
+
+        raw_input = sys.stdin.read()
+
+    # Detect entry kind
+    detector = EntryDetector()
+    entry = detector.detect(raw_input)
+
+    # Override entry kind if specified
+    if entry_kind:
+        entry.kind = EntryKind(entry_kind)
+
+    click.echo(f"Entry detected: {entry.kind.value}")
+    click.echo(f"  Input: {raw_input[:80]}{'...' if len(raw_input) > 80 else ''}")
+    click.echo(f"  Confidence: {entry.confidence:.2f}")
+    click.echo(f"  Profile: {profile}")
+    if severity:
+        click.echo(f"  Severity: {severity}")
+    if entry.detected_attachments:
+        click.echo(f"  Attachments: {', '.join(entry.detected_attachments)}")
+
+    if dry_run:
+        click.echo("\nDry run mode -- pipeline plan generated but not executed")
+        click.echo(f"  Stages would run based on profile '{profile}'")
+        return
+
+    click.echo("\nPipeline execution requires LLM integration (M2).")
+    click.echo("Use 'sdlc status' to check pipeline states.")
