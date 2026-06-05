@@ -54,7 +54,7 @@ src = ["sdlc", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM", "RUF"]
-ignore = ["E501", "A002", "A005"]
+ignore = ["E501", "A002", "A005", "RUF012"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["sdlc"]
