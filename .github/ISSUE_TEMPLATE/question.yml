@@ -1,0 +1,60 @@
+name: Question
+description: Ask a question about SDLC usage
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have a question about SDLC?
+        Before asking, please check the [documentation](https://your-org.github.io/sdlc/)
+        and existing [discussions](https://github.com/your-org/sdlc/discussions).
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know?
+      placeholder: "How do I configure SDLC to use a custom adapter?"
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: |
+        Any relevant context about your setup or what you've already tried.
+      placeholder: |
+        - I'm using SDLC v0.4.0
+        - I've tried `sdlc adapter list` but ...
+        - My `.sdlc/config.yaml` contains ...
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Related Area
+      description: Which part of SDLC does your question relate to?
+      options:
+        - Installation / Setup
+        - CLI usage
+        - Pipeline execution
+        - Adapters
+        - Rule engine
+        - Quality gates
+        - LLM provider configuration
+        - Knowledge base
+        - Python API (SdlcClient)
+        - Configuration
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Pre-flight Checks
+      options:
+        - label: I have searched existing issues and discussions for an answer
+          required: true
+        - label: I have read the documentation
+          required: true

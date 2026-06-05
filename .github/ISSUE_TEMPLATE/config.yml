@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://your-org.github.io/sdlc/
+    about: Check the full documentation before opening an issue.
+  - name: Discussions
+    url: https://github.com/your-org/sdlc/discussions
+    about: Ask questions, share ideas, and discuss SDLC with the community.

@@ -29,11 +29,60 @@ class ProfileRegistry:
     def has(self, profile_id: str) -> bool:
         return profile_id in self._profiles
 
+    def match_score(self, profile: ProfileDef, entry_kind: str, **context: Any) -> float:
+        """Score how well a profile matches the given entry_kind and context.
+
+        Returns a float between 0.0 and 1.0.  Weights:
+          - entry kind match:   0.40
+          - tech stack match:   0.30
+          - severity alignment: 0.15
+          - keyword match:      0.15
+        """
+        score = 0.0
+
+        # Entry kind match (weight 0.4)
+        if entry_kind in profile.entry_kinds:
+            score += 0.4
+
+        # Tech stack match (weight 0.3)
+        tech_stack = context.get("tech_stack", [])
+        if tech_stack and any(t in str(profile.base_stages) for t in tech_stack):
+            score += 0.3
+
+        # Severity alignment (weight 0.15)
+        severity = context.get("severity", "P2")
+        if severity == profile.severity:
+            score += 0.15
+
+        # Keyword match (weight 0.15)
+        keywords = context.get("keywords", [])
+        profile_text = f"{profile.name} {profile.id} {' '.join(profile.entry_kinds)}".lower()
+        if keywords and any(kw.lower() in profile_text for kw in keywords):
+            score += 0.15
+
+        return min(score, 1.0)
+
     def resolve(self, entry_kind: str, **context: Any) -> ProfileDef:
+        """Return the best-matching profile for *entry_kind*, using multi-factor scoring."""
+        best_profile: ProfileDef | None = None
+        best_score = -1.0
         for profile in self._profiles.values():
-            if entry_kind in profile.entry_kinds:
-                return profile
-        return self.get("new-feature")
+            score = self.match_score(profile, entry_kind, **context)
+            if score > best_score:
+                best_score = score
+                best_profile = profile
+        if best_profile:
+            return best_profile
+        return self.get("new-feature")  # fallback
+
+    def resolve_all(self, entry_kind: str, **context: Any) -> list[tuple[ProfileDef, float]]:
+        """Return all profiles ranked by match score (descending).
+
+        Each element is a ``(profile, score)`` tuple.
+        """
+        scored = [(p, self.match_score(p, entry_kind, **context)) for p in self._profiles.values()]
+        scored.sort(key=lambda pair: pair[1], reverse=True)
+        return scored
 
     def load_from_yaml(self, path: Path) -> int:
         data = load_yaml(path)
