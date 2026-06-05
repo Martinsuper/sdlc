@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import time
 from typing import Any
 
 from sdlc.adapter import AdapterRegistry
@@ -7,10 +9,12 @@ from sdlc.audit import AuditEventType, AuditLogger
 from sdlc.core.entry_detector import EntryDetector
 from sdlc.core.models import PipelineResult
 from sdlc.core.pipeline_builder import PipelineBuilder
-from sdlc.gate import GateEngine
+from sdlc.gate import GateAction, GateEngine
+from sdlc.kb.memory import MemoryL2
 from sdlc.llm.cost import CostTracker
 from sdlc.profile import ProfileRegistry
 from sdlc.stage import StageCatalog, StageRunner
+from sdlc.stage.models import StageNode
 from sdlc.state import StateStore
 from sdlc.subagent import SubagentPool
 
@@ -26,6 +30,7 @@ class RunCoordinator:
         profile_registry: ProfileRegistry | None = None,
         adapter_registry: AdapterRegistry | None = None,
         cost_tracker: CostTracker | None = None,
+        memory_l2: MemoryL2 | None = None,
     ) -> None:
         self.state = state
         self.audit = audit
@@ -35,6 +40,7 @@ class RunCoordinator:
         self.profile_registry = profile_registry or ProfileRegistry()
         self.adapter_registry = adapter_registry or AdapterRegistry()
         self.cost_tracker = cost_tracker
+        self.memory_l2 = memory_l2
         self.entry_detector = EntryDetector()
         self.pipeline_builder = PipelineBuilder(catalog)
         self.stage_runner = StageRunner(
@@ -43,6 +49,7 @@ class RunCoordinator:
             audit=audit,
             subagent_pool=subagent_pool,
             gate_engine=gate_engine,
+            memory_l2=memory_l2,
         )
 
     async def run(
@@ -50,6 +57,7 @@ class RunCoordinator:
         input_text: str,
         profile_id: str | None = None,
         adapter_id: str | None = None,
+        concurrency: int = 1,
         **opts: Any,
     ) -> PipelineResult:
         entry = self.entry_detector.detect(input_text)
@@ -82,9 +90,16 @@ class RunCoordinator:
         )
 
         context = {"input": input_text, "severity": profile.severity, "pipeline_id": pipeline.id}
-        stage_results = await self.stage_runner.run_pipeline_stages(
-            pipeline.stages, pipeline.id, context
-        )
+
+        # Choose execution mode based on concurrency
+        if concurrency > 1:
+            stage_results = await self._run_pipeline_stages_concurrent(
+                pipeline.stages, pipeline.id, context, concurrency
+            )
+        else:
+            stage_results = await self.stage_runner.run_pipeline_stages(
+                pipeline.stages, pipeline.id, context
+            )
 
         # Track costs if CostTracker is provided
         total_cost = sum(r.get("cost_usd", 0.0) for r in stage_results)
@@ -133,3 +148,151 @@ class RunCoordinator:
             stage_results=stage_results,
             total_cost_usd=total_cost,
         )
+
+    async def _run_pipeline_stages_concurrent(
+        self,
+        stage_nodes: list[StageNode],
+        pipeline_id: str,
+        context: dict[str, Any],
+        concurrency: int,
+    ) -> list[dict[str, Any]]:
+        """Run pipeline stages with concurrency for independent stages.
+
+        Stages that have no unmet dependencies can run in parallel,
+        respecting the concurrency limit. Per-stage timing is tracked.
+        """
+        max_concurrency = min(concurrency, 3)  # Cap at 3
+        semaphore = asyncio.Semaphore(max_concurrency)
+
+        results: list[dict[str, Any]] = [None] * len(stage_nodes)  # type: ignore[list-item]
+        completed_ids: set[str] = set()
+        # Track index for each task so we can map results back
+        task_index: dict[asyncio.Task[Any], int] = {}
+
+        # Track which stages are ready, running, or done
+        pending = set(range(len(stage_nodes)))
+        should_stop = False
+
+        async def _run_one(idx: int, node: StageNode) -> dict[str, Any]:
+            """Run a single stage with semaphore-based concurrency control."""
+            async with semaphore:
+                start = time.monotonic()
+                stage_def = node.stage_def
+                if stage_def is None and self.stage_runner.catalog.has(node.id):
+                    stage_def = self.stage_runner.catalog.get(node.id)
+                if stage_def is None:
+                    return {
+                        "stage_id": node.id,
+                        "status": "FAILED",
+                        "artifacts": [],
+                        "cost_usd": 0.0,
+                        "error": f"Stage definition not found for '{node.id}'",
+                        "gate_decision": None,
+                        "duration_ms": 0,
+                    }
+                result = await self.stage_runner.run_stage(stage_def, pipeline_id, context)
+                elapsed_ms = (time.monotonic() - start) * 1000
+                result["duration_ms"] = round(elapsed_ms, 2)
+                return result
+
+        # Iterative scheduling: keep launching stages as their deps are met
+        running: set[asyncio.Task[Any]] = set()
+
+        while (pending or running) and not should_stop:
+            # Find stages whose dependencies are all satisfied
+            ready: list[int] = []
+            for idx in list(pending):
+                node = stage_nodes[idx]
+                if all(d in completed_ids for d in node.depends_on):
+                    ready.append(idx)
+
+            # Launch ready stages
+            for idx in ready:
+                pending.remove(idx)
+                node = stage_nodes[idx]
+                task = asyncio.create_task(_run_one(idx, node))
+                task_index[task] = idx
+                running.add(task)
+
+            if not running:
+                # Nothing running and nothing ready -- remaining stages have unmet deps
+                for idx in pending:
+                    node = stage_nodes[idx]
+                    unmet = [d for d in node.depends_on if d not in completed_ids]
+                    results[idx] = {
+                        "stage_id": node.id,
+                        "status": "SKIPPED",
+                        "artifacts": [],
+                        "cost_usd": 0.0,
+                        "error": f"Unmet dependencies: {unmet}",
+                        "gate_decision": None,
+                        "duration_ms": 0,
+                    }
+                pending.clear()
+                break
+
+            # Wait for at least one running task to complete
+            done, running = await asyncio.wait(running, return_when=asyncio.FIRST_COMPLETED)
+
+            for task in done:
+                idx = task_index.pop(task, -1)
+                try:
+                    result = task.result()
+                except Exception as exc:
+                    node = stage_nodes[idx] if idx >= 0 else None  # type: ignore[assignment]
+                    result = {
+                        "stage_id": node.id if node else "unknown",
+                        "status": "FAILED",
+                        "artifacts": [],
+                        "cost_usd": 0.0,
+                        "error": str(exc),
+                        "gate_decision": None,
+                        "duration_ms": 0,
+                    }
+
+                results[idx] = result
+
+                # Check for failure / gate block
+                gate_decision = result.get("gate_decision")
+                is_block = False
+                if gate_decision:
+                    if isinstance(gate_decision, dict):
+                        is_block = gate_decision.get("action") == GateAction.BLOCK
+                    else:
+                        is_block = getattr(gate_decision, "action", None) == GateAction.BLOCK
+
+                if result["status"] == "SUCCESS" and not is_block:
+                    completed_ids.add(result["stage_id"])
+                else:
+                    # Failure or gate block: skip remaining pending stages
+                    should_stop = True
+                    for p_idx in list(pending):
+                        p_node = stage_nodes[p_idx]
+                        results[p_idx] = {
+                            "stage_id": p_node.id,
+                            "status": "SKIPPED",
+                            "artifacts": [],
+                            "cost_usd": 0.0,
+                            "error": "Blocked by gate decision" if is_block else "Skipped due to prior stage failure",
+                            "gate_decision": None,
+                            "duration_ms": 0,
+                        }
+                    pending.clear()
+                    # Cancel any still-running tasks
+                    for t in running:
+                        t.cancel()
+
+        # Fill any remaining None slots (shouldn't happen, but defensive)
+        for i, r in enumerate(results):
+            if r is None:
+                results[i] = {
+                    "stage_id": stage_nodes[i].id,
+                    "status": "SKIPPED",
+                    "artifacts": [],
+                    "cost_usd": 0.0,
+                    "error": "Not executed",
+                    "gate_decision": None,
+                    "duration_ms": 0,
+                }
+
+        return results

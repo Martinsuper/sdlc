@@ -2,6 +2,7 @@
 
 from sdlc.kb.fingerprint import compute_kb_fingerprint, compute_layer_fingerprint
 from sdlc.kb.knowledge_base import KBFileNotFoundError, KnowledgeBase
+from sdlc.kb.memory import MemoryL2
 from sdlc.kb.models import KBDeltaResult, KBLayer, ScanResult
 from sdlc.kb.reconciler import Reconciler
 from sdlc.kb.scanner import Scanner
@@ -13,6 +14,7 @@ __all__ = [
     "KBLayer",
     "KBWriter",
     "KnowledgeBase",
+    "MemoryL2",
     "Reconciler",
     "ScanResult",
     "Scanner",

@@ -13,6 +13,7 @@ from typing import Any
 
 from sdlc.audit import AuditEventType, AuditLogger
 from sdlc.gate import GateAction, GateEngine
+from sdlc.kb.memory import MemoryL2
 from sdlc.stage.catalog import StageCatalog
 from sdlc.stage.models import StageDef, StageNode
 from sdlc.state import Artifact, StateStore
@@ -178,12 +179,14 @@ class StageRunner:
         audit: AuditLogger,
         subagent_pool: SubagentPool,
         gate_engine: GateEngine | None = None,
+        memory_l2: MemoryL2 | None = None,
     ) -> None:
         self.catalog = catalog
         self.state = state
         self.audit = audit
         self.subagent_pool = subagent_pool
         self.gate_engine = gate_engine
+        self.memory_l2 = memory_l2
 
     async def run_stage(
         self,
@@ -285,13 +288,8 @@ class StageRunner:
             }
             gate_decision = self.gate_engine.evaluate(stage_def.id, gate_context)
 
-        self.audit.emit(
-            AuditEventType.STAGE_END,
-            {"stage": stage_def.id, "status": status, "cost_usd": total_cost, "duration_ms": 0},
-            pipeline_id=pipeline_id,
-        )
-
-        return {
+        # Memory L2: auto-update KB with learnings after stage completes
+        result_dict = {
             "stage_id": stage_def.id,
             "status": status,
             "artifacts": artifacts_produced,
@@ -299,6 +297,20 @@ class StageRunner:
             "error": error,
             "gate_decision": gate_decision,
         }
+        if self.memory_l2:
+            self.memory_l2.on_stage_complete(
+                stage_id=stage_def.id,
+                result=result_dict,
+                pipeline_id=pipeline_id,
+            )
+
+        self.audit.emit(
+            AuditEventType.STAGE_END,
+            {"stage": stage_def.id, "status": status, "cost_usd": total_cost, "duration_ms": 0},
+            pipeline_id=pipeline_id,
+        )
+
+        return result_dict
 
     async def run_pipeline_stages(
         self,

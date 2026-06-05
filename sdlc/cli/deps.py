@@ -9,6 +9,7 @@ from sdlc.adapter import AdapterRegistry, register_dongboot
 from sdlc.audit import AuditLogger
 from sdlc.core import EntryDetector, PipelineBuilder, RunCoordinator
 from sdlc.gate import GateEngine
+from sdlc.kb.memory import MemoryL2
 from sdlc.llm import AnthropicProvider, CostTracker, MultiLLMClient, OpenAIProvider
 from sdlc.profile import ProfileRegistry
 from sdlc.profile import register_builtins as register_profiles
@@ -18,7 +19,7 @@ from sdlc.subagent import SubagentPool, SubagentRegistry
 from sdlc.subagent import register_builtins as register_subagents
 from sdlc.utils.config import SdlcConfig
 from sdlc.utils.config_loader import load_config
-from sdlc.utils.paths import sdlc_home
+from sdlc.utils.paths import project_root, sdlc_home
 
 
 @dataclass
@@ -123,6 +124,15 @@ def build_deps(config: SdlcConfig | None = None) -> DependencyContainer:
     )
     cost_tracker = CostTracker(max_budget_usd=max_cost)
 
+    # Memory L2: auto-update KB after stages
+    memory_l2: MemoryL2 | None = None
+    try:
+        kb_root = project_root() / "doc" / "kb"
+        if kb_root.exists():
+            memory_l2 = MemoryL2(kb_root=kb_root)
+    except Exception:
+        memory_l2 = None
+
     coordinator = RunCoordinator(
         state=state,
         audit=audit,
@@ -132,6 +142,7 @@ def build_deps(config: SdlcConfig | None = None) -> DependencyContainer:
         profile_registry=profiles,
         adapter_registry=adapters,
         cost_tracker=cost_tracker,
+        memory_l2=memory_l2,
     )
 
     return DependencyContainer(

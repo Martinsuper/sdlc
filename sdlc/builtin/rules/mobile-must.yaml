@@ -297,3 +297,483 @@
   severity: P0
   applies_to: ["**/*.plist"]
   references: []
+
+- id: mobile-no-compose-side-effect
+  level: MUST
+  category: compose
+  description: "Jetpack Compose 中禁止在组合函数中产生副作用"
+  enforcer: cr
+  pattern: "@Composable.*(?:ViewModel\\.|Repository\\.|DataStore\\.|SharedPrefs\\.)"
+  message: "Composable 函数应是纯函数，副作用应使用 LaunchedEffect 或 SideEffect"
+  action: block
+  severity: P1
+  applies_to: ["**/*.kt"]
+  references: []
+
+- id: mobile-no-compose-state-mutation
+  level: MUST
+  category: compose
+  description: "Compose 状态应在 remember 中管理"
+  enforcer: cr
+  pattern: "var\\s+\\w+\\s+by\\s+mutableStateOf(?!.*)"
+  message: "Compose 可变状态应使用 remember 包裹以在重组中保持"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.kt"]
+  references: []
+
+- id: mobile-no-compose-heavy-recomposition
+  level: SHOULD
+  category: compose
+  description: "避免不必要的重组"
+  enforcer: cr
+  pattern: "@Composable\\s+fun\\s+\\w+\\s*\\([^)]*\\w+:\\s+(List|Map|Set)<"
+  message: "参数使用不可变集合可能导致频繁重组，请使用 remember 或 key 优化"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.kt"]
+  references: []
+
+- id: mobile-no-swiftui-state-object-misuse
+  level: MUST
+  category: swiftui
+  description: "SwiftUI 中应使用 @StateObject 而非 @ObservedObject 初始化"
+  enforcer: cr
+  pattern: "@ObservedObject\\s+var\\s+\\w+\\s*=\\s*\\w+\\("
+  message: "由视图创建的 ObservableObject 应使用 @StateObject"
+  action: block
+  severity: P1
+  applies_to: ["**/*.swift"]
+  references: []
+
+- id: mobile-no-swiftui-body-side-effect
+  level: MUST
+  category: swiftui
+  description: "SwiftUI body 计算属性中不应有副作用"
+  enforcer: cr
+  pattern: "var\\s+body\\s*:\\s*some\\s+View\\s*\\{.*(?:print|URLSession|FileManager)"
+  message: "SwiftUI body 中不应执行 IO 操作，请使用 .onAppear 或 .task"
+  action: block
+  severity: P1
+  applies_to: ["**/*.swift"]
+  references: []
+
+- id: mobile-no-swiftui-force-unwrap
+  level: MUST
+  category: swiftui
+  description: "SwiftUI 视图中禁止强制解包"
+  enforcer: cr
+  pattern: "\\w+!"
+  message: "SwiftUI 视图中应使用 if let 或 ?? 安全解包，避免运行时崩溃"
+  action: block
+  severity: P1
+  applies_to: ["**/*.swift"]
+  references: []
+
+- id: mobile-no-flutter-bloc-close
+  level: MUST
+  category: bloc
+  description: "BLoC 必须在使用后关闭"
+  enforcer: cr
+  pattern: "BlocProvider\\s*\\((?!.*\\.close|.*BlocProvider\\.value)"
+  message: "BLoC 必须通过 BlocProvider 管理生命周期，确保调用 close()"
+  action: block
+  severity: P1
+  applies_to: ["**/*.dart"]
+  references: []
+
+- id: mobile-no-flutter-bloc-event-transform
+  level: SHOULD
+  category: bloc
+  description: "高频事件应使用 transformer 限流"
+  enforcer: cr
+  pattern: "on<\\w+>((?!.*transformer|.*restartable|.*debounce)"
+  message: "高频事件（如搜索输入）应使用 transformer 进行防抖/节流"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.dart"]
+  references: []
+
+- id: mobile-no-flutter-setstate
+  level: SHOULD
+  category: bloc
+  description: "使用 BLoC 时不应使用 setState"
+  enforcer: cr
+  pattern: "setState\\s*\\(\\s*\\(\\s*\\)\\s*\\{"
+  message: "使用 BLoC 模式时状态管理应通过 BlocBuilder，避免 setState"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.dart"]
+  references: []
+
+- id: mobile-no-navigation-hardcoded
+  level: MUST
+  category: navigation
+  description: "导航路由不应硬编码字符串"
+  enforcer: cr
+  pattern: "Navigator\\.(push|pop|replace)\\s*\\(.*['\"][^'\"]+['\"]"
+  message: "导航路由应使用常量或路由表，避免硬编码字符串"
+  action: block
+  severity: P1
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: mobile-no-navigation-no-back-handler
+  level: SHOULD
+  category: navigation
+  description: "导航应正确处理返回事件"
+  enforcer: cr
+  pattern: "WillPopScope|BackButtonListener"
+  message: "关键页面应正确处理返回按钮事件，防止意外退出"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.kt", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: mobile-no-deeplink-unverified
+  level: MUST
+  category: deeplink
+  description: "Deep Link 参数必须验证"
+  enforcer: cr
+  pattern: "getIntent\\(\\)\\.getData\\(\\)|UniversalLink|AppLinkData"
+  message: "Deep Link 传入的参数必须验证，防止恶意数据注入"
+  action: block
+  severity: P0
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: mobile-no-deeplink-no-fallback
+  level: SHOULD
+  category: deeplink
+  description: "Deep Link 应有降级处理"
+  enforcer: cr
+  pattern: "deep_link|deeplink|universal_link"
+  message: "Deep Link 无法打开时应提供网页降级方案"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: mobile-no-push-token-hardcoded
+  level: MUST
+  category: push
+  description: "推送通知 Token 不应硬编码"
+  enforcer: cr
+  pattern: "(FCM_TOKEN|APNS_TOKEN|deviceToken)\\s*=\\s*[\"'][^\"']+[\"']"
+  message: "推送通知 Token 应从系统 API 动态获取，禁止硬编码"
+  action: block
+  severity: P0
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: mobile-no-push-no-permission-check
+  level: MUST
+  category: push
+  description: "推送通知必须先请求用户授权"
+  enforcer: cr
+  pattern: "FirebaseMessaging|UNUserNotificationCenter\\.current\\(\\)\\.add"
+  message: "发送推送前必须请求用户授权并检查权限状态"
+  action: block
+  severity: P1
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: mobile-no-offline-no-cache
+  level: MUST
+  category: offline
+  description: "离线优先应用必须实现本地缓存"
+  enforcer: cr
+  pattern: "OfflineFirst|offline|isConnected"
+  message: "离线优先架构必须有本地数据缓存层"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: mobile-no-offline-no-sync
+  level: MUST
+  category: offline
+  description: "离线数据必须有同步机制"
+  enforcer: cr
+  pattern: "Room|CoreData|sqflite|hive"
+  message: "本地数据库变更应有同步机制，在网络恢复时上传到服务器"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: mobile-no-biometric-no-fallback
+  level: MUST
+  category: biometric
+  description: "生物认证必须有安全降级方案"
+  enforcer: cr
+  pattern: "BiometricPrompt|LAContext|local_auth"
+  message: "生物认证不可用时应提供 PIN/密码替代方案"
+  action: block
+  severity: P1
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: mobile-no-biometric-store-credential
+  level: MUST
+  category: biometric
+  description: "生物认证通过后不应存储明文凭据"
+  enforcer: cr
+  pattern: "BiometricPrompt.*(?:password|secret|token)\\s*="
+  message: "生物认证后应使用 Keystore/Keychain 安全存储凭据"
+  action: block
+  severity: P0
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: mobile-no-app-signing-debug
+  level: MUST
+  category: signing
+  description: "发布构建必须使用发布签名"
+  enforcer: cr
+  pattern: "signingConfig\\s+debug|signingConfig\\s*=\\s*debug"
+  message: "发布 APK/IPA 必须使用发布签名配置，不能使用 debug 签名"
+  action: block
+  severity: P0
+  applies_to: ["**/*.gradle", "**/*.gradle.kts"]
+  references: []
+
+- id: mobile-no-proguard-missing
+  level: SHOULD
+  category: proguard
+  description: "Android 发布构建应启用代码混淆"
+  enforcer: cr
+  pattern: "minifyEnabled\\s+false"
+  message: "发布构建应设置 minifyEnabled true 以启用 ProGuard/R8"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.gradle", "**/*.gradle.kts"]
+  references: []
+
+- id: mobile-no-proguard-keep-all
+  level: SHOULD
+  category: proguard
+  description: "ProGuard 规则不应保留所有类"
+  enforcer: cr
+  pattern: "-keep\\s+class\\s+\\*|dontobfuscate"
+  message: "ProGuard 不应禁用混淆，请精确指定需要保留的类"
+  action: warn
+  severity: P2
+  applies_to: ["**/proguard-rules*.pro", "**/proguard*.pro"]
+  references: []
+
+- id: mobile-no-appstore-private-api
+  level: MUST
+  category: appstore
+  description: "禁止使用私有 API"
+  enforcer: cr
+  pattern: "\\._\\w+|performSelector|objc_msgSend|dlopen"
+  message: "App Store 审核禁止使用私有 API，将被拒审"
+  action: block
+  severity: P0
+  applies_to: ["**/*.swift", "**/*.kt", "**/*.java", "**/*.dart"]
+  references: []
+
+- id: mobile-no-appstore-idfa-without-prompt
+  level: MUST
+  category: appstore
+  description: "IDFA 追踪必须先获取用户授权"
+  enforcer: cr
+  pattern: "ATTrackingManager|requestTrackingAuthorization|AdvertisingIdClient"
+  message: "IDFA 追踪必须先调用 requestTrackingAuthorization()"
+  action: block
+  severity: P0
+  applies_to: ["**/*.swift", "**/*.kt", "**/*.java"]
+  references: []
+
+- id: mobile-no-appstore-healthkit-without-usage
+  level: MUST
+  category: appstore
+  description: "HealthKit 使用必须在 Info.plist 声明用途"
+  enforcer: cr
+  pattern: "HKHealthStore|HealthKit"
+  message: "使用 HealthKit 必须在 Info.plist 中声明 NSHealthShareUsageDescription"
+  action: block
+  severity: P0
+  applies_to: ["**/*.swift"]
+  references: []
+
+- id: mobile-no-permission-request-runtime
+  level: MUST
+  category: security
+  description: "危险权限必须运行时请求"
+  enforcer: cr
+  pattern: "Manifest\\.permission\\.(CAMERA|MICROPHONE|LOCATION|READ_CONTACTS|READ_CALENDAR)"
+  message: "危险权限必须在运行时请求用户授权"
+  action: block
+  severity: P1
+  applies_to: ["**/*.kt", "**/*.java"]
+  references: []
+
+- id: mobile-no-network-on-main
+  level: MUST
+  category: performance
+  description: "网络请求不应在主线程执行"
+  enforcer: cr
+  pattern: "Dispatchers\\.Main.*(?:Retrofit|URLSession|http|fetch|dio)"
+  message: "网络请求应使用 IO 调度器，不应在主线程执行"
+  action: block
+  severity: P1
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: mobile-no-large-image-uncompressed
+  level: SHOULD
+  category: performance
+  description: "大图片应压缩后使用"
+  enforcer: cr
+  pattern: "BitmapFactory|UIImage\\(contentsOfFile|decodeImage"
+  message: "大图片应先压缩/缩放再加载，避免 OOM"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: mobile-no-memory-leak-listener
+  level: SHOULD
+  category: reliability
+  description: "注册的监听器必须在生命周期结束时注销"
+  enforcer: cr
+  pattern: "register\\w+Listener|addEventListener|\\+\\[NSNotificationCenter"
+  message: "监听器应在 onDestroy/dealloc 中注销，防止内存泄漏"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: mobile-no-crashlytics-missing
+  level: SHOULD
+  category: reliability
+  description: "应用应集成崩溃上报"
+  enforcer: cr
+  pattern: ""
+  message: "建议集成 Crashlytics/Sentry 等崩溃上报工具"
+  action: warn
+  severity: P2
+  applies_to: ["**/build.gradle*", "**/Podfile", "**/pubspec.yaml"]
+  references: []
+
+- id: mobile-no-analytics-missing
+  level: SHOULD
+  category: quality
+  description: "应用应集成用户行为分析"
+  enforcer: cr
+  pattern: ""
+  message: "建议集成 Firebase Analytics/Mixpanel 等用户行为分析"
+  action: warn
+  severity: P3
+  applies_to: ["**/build.gradle*", "**/Podfile", "**/pubspec.yaml"]
+  references: []
+
+- id: mobile-no-compose-recomposition-state
+  level: SHOULD
+  category: compose
+  description: "Compose 状态提升应避免不必要重组"
+  enforcer: cr
+  pattern: "remember\\s*\\{\\s*\\w+\\.copy\\(\\)\\s*\\}"
+  message: "remember 中不应在每次重组时创建新对象，请使用 remember 的 key 参数"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.kt"]
+  references: []
+
+- id: mobile-no-swiftui-observable-mainactor
+  level: SHOULD
+  category: swiftui
+  description: "SwiftUI ObservableObject 应标注 @MainActor"
+  enforcer: cr
+  pattern: "class\\s+\\w+\\s*:\\s*ObservableObject(?!.*@MainActor)"
+  message: "ObservableObject 应标注 @MainActor 以确保 UI 更新在主线程"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.swift"]
+  references: []
+
+- id: mobile-no-flutter-widget-dispose
+  level: MUST
+  category: bloc
+  description: "StatefulWidget 必须在 dispose 中清理资源"
+  enforcer: cr
+  pattern: "class\\s+\\w+State\\s+extends\\s+State(?!.*dispose)"
+  message: "StatefulWidget 的 State 应在 dispose() 中释放控制器等资源"
+  action: block
+  severity: P1
+  applies_to: ["**/*.dart"]
+  references: []
+
+- id: mobile-no-certificate-pinning-missing
+  level: SHOULD
+  category: security
+  description: "安全敏感应用应实现证书固定"
+  enforcer: cr
+  pattern: "OkHttpClient|URLSession|HttpClient"
+  message: "建议实现 SSL 证书固定（Certificate Pinning）防止中间人攻击"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: mobile-no-tamper-detection-missing
+  level: SHOULD
+  category: security
+  description: "高安全应用应实现篡改检测"
+  enforcer: cr
+  pattern: ""
+  message: "高安全等级应用应检测应用是否被篡改或重新签名"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: mobile-no-clipboard-read-without-consent
+  level: MUST
+  category: security
+  description: "禁止未经用户同意读取剪贴板"
+  enforcer: cr
+  pattern: "(ClipboardManager|UIPasteboard|Clipboard)\\.getData|\\.getString|\\.getPrimaryClip"
+  message: "读取剪贴板应获取用户明确同意"
+  action: block
+  severity: P1
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: mobile-no-location-background
+  level: MUST
+  category: security
+  description: "后台位置访问必须声明明确用途"
+  enforcer: cr
+  pattern: "ACCESS_BACKGROUND_LOCATION|alwaysAuthorization|requestAlwaysAuthorization"
+  message: "后台位置访问必须在应用描述中声明明确用途"
+  action: block
+  severity: P0
+  applies_to: ["**/*.xml", "**/*.swift", "**/*.kt", "**/*.plist"]
+  references: []
+
+- id: mobile-no-encryption-export-compliance
+  level: SHOULD
+  category: appstore
+  description: "使用加密的应用应声明出口合规"
+  enforcer: cr
+  pattern: "CryptoKit|CommonCrypto|javax\\.crypto|cryptography"
+  message: "使用加密的应用必须在 App Store Connect 声明出口合规信息"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.swift", "**/*.kt", "**/*.java", "**/*.dart"]
+  references: []
+
+- id: mobile-no-accessibility-no-voiceover
+  level: SHOULD
+  category: a11y
+  description: "UI 元素应支持 VoiceOver/TalkBack"
+  enforcer: cr
+  pattern: "contentDescription\\s*=\\s*null|accessibilityLabel\\s*=\\s*nil|semantics\\s*\\{\\s*\\}"
+  message: "所有交互元素应设置无障碍标签以支持屏幕阅读器"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []

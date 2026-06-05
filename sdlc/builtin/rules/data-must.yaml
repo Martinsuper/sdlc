@@ -297,3 +297,279 @@
   severity: P1
   applies_to: ["**/*.py", "**/*.scala", "**/*.java"]
   references: []
+
+- id: data-no-spark-collect-driver
+  level: MUST
+  category: spark
+  description: "Spark 大数据集不应使用 collect() 到 Driver"
+  enforcer: cr
+  pattern: "\\.collect\\s*\\(\\s*\\)"
+  message: "大数据集应使用 take() 或写入存储，不应 collect() 到 Driver 内存"
+  action: block
+  severity: P1
+  applies_to: ["**/*.py", "**/*.scala", "**/*.java"]
+  references: []
+
+- id: data-no-spark-broadcast-join-large
+  level: SHOULD
+  category: spark
+  description: "Broadcast Join 表大小应低于阈值"
+  enforcer: cr
+  pattern: "broadcast\\s*\\(\\s*\\w+\\)"
+  message: "Broadcast 表应小于 10GB，大表应使用 SortMerge Join"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.py", "**/*.scala"]
+  references: []
+
+- id: data-no-spark-no-persist
+  level: SHOULD
+  category: spark
+  description: "多次使用的 RDD/DataFrame 应缓存"
+  enforcer: cr
+  pattern: ""
+  message: "多次使用的 DataFrame 应调用 .cache() 或 .persist() 避免重复计算"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.py", "**/*.scala", "**/*.java"]
+  references: []
+
+- id: data-no-spark-shuffle-partition
+  level: SHOULD
+  category: spark
+  description: "应配置 Spark Shuffle 分区数"
+  enforcer: cr
+  pattern: "spark\\.sql\\.shuffle\\.partitions"
+  message: "应根据集群规模配置合理的 shuffle 分区数"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.py", "**/*.scala", "**/*.conf"]
+  references: []
+
+- id: data-no-flink-no-checkpoint
+  level: MUST
+  category: flink
+  description: "Flink 作业必须启用 Checkpoint"
+  enforcer: cr
+  pattern: "StreamExecutionEnvironment|enableCheckpointing"
+  message: "Flink 流作业必须启用 Checkpoint 以支持故障恢复"
+  action: block
+  severity: P1
+  applies_to: ["**/*.java", "**/*.scala", "**/*.py"]
+  references: []
+
+- id: data-no-flink-no-savepoint
+  level: SHOULD
+  category: flink
+  description: "Flink 作业升级应使用 Savepoint"
+  enforcer: cr
+  pattern: ""
+  message: "Flink 作业升级时应先创建 Savepoint 再停止"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.yaml", "**/*.yml", "**/*.sh"]
+  references: []
+
+- id: data-no-flink-no-watermark
+  level: MUST
+  category: flink
+  description: "事件时间处理必须配置 Watermark"
+  enforcer: cr
+  pattern: "EventTime|eventTime|BoundedOutOfOrdernessTimestampExtractor"
+  message: "使用事件时间窗口必须配置 Watermark 策略"
+  action: block
+  severity: P1
+  applies_to: ["**/*.java", "**/*.scala", "**/*.py"]
+  references: []
+
+- id: data-no-kafka-no-commit-offset
+  level: MUST
+  category: kafka
+  description: "Kafka Consumer 必须正确提交偏移量"
+  enforcer: cr
+  pattern: "enable\\.auto\\.commit\\s*=\\s*true"
+  message: "生产环境应禁用自动提交，使用手动提交确保至少一次语义"
+  action: block
+  severity: P0
+  applies_to: ["**/*.py", "**/*.java", "**/*.scala", "**/*.properties"]
+  references: []
+
+- id: data-no-kafka-no-dlq
+  level: SHOULD
+  category: kafka
+  description: "Kafka Consumer 应配置死信队列"
+  enforcer: cr
+  pattern: "KafkaConsumer|@KafkaListener"
+  message: "消费失败的消息应发送到死信队列而非丢弃"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.py", "**/*.java", "**/*.scala"]
+  references: []
+
+- id: data-no-kafka-no-retry
+  level: SHOULD
+  category: kafka
+  description: "Kafka Consumer 应配置重试策略"
+  enforcer: cr
+  pattern: "KafkaConsumer|@KafkaListener"
+  message: "消息消费失败应有重试机制，避免数据丢失"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.py", "**/*.java", "**/*.scala"]
+  references: []
+
+- id: data-no-lineage-missing
+  level: SHOULD
+  category: lineage
+  description: "数据管道应配置数据血缘追踪"
+  enforcer: cr
+  pattern: ""
+  message: "数据管道应集成 OpenLineage 或 Apache Atlas 进行血缘追踪"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.py", "**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: data-no-schema-no-evolution
+  level: MUST
+  category: schema
+  description: "Schema 变更必须兼容"
+  enforcer: cr
+  pattern: "avro\\.schema|Schema\\.Builder|SchemaRegistry"
+  message: "Schema 变更必须向后兼容，使用 Schema Registry 管理演进"
+  action: block
+  severity: P1
+  applies_to: ["**/*.py", "**/*.java", "**/*.scala", "**/*.json"]
+  references: []
+
+- id: data-no-schema-no-registry
+  level: SHOULD
+  category: schema
+  description: "消息 Schema 应通过 Registry 管理"
+  enforcer: cr
+  pattern: ""
+  message: "建议使用 Confluent Schema Registry 管理消息 Schema"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.py", "**/*.java", "**/*.scala"]
+  references: []
+
+- id: data-no-catalog-missing
+  level: SHOULD
+  category: catalog
+  description: "数据资产应注册到数据目录"
+  enforcer: cr
+  pattern: ""
+  message: "数据表和管道应注册到 Data Catalog（如 DataHub、Amundsen）"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.py", "**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: data-no-catalog-no-owner
+  level: SHOULD
+  category: catalog
+  description: "数据资产应指定负责人"
+  enforcer: cr
+  pattern: ""
+  message: "数据表应指定 data owner 以便问题追踪和治理"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.py", "**/*.sql", "**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: data-no-feature-store-no-version
+  level: MUST
+  category: feature-store
+  description: "Feature Store 特征必须版本化"
+  enforcer: cr
+  pattern: "FeatureStore|feature_store|feast"
+  message: "特征定义必须版本化管理，确保训练和推理使用相同版本"
+  action: block
+  severity: P1
+  applies_to: ["**/*.py", "**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: data-no-feature-store-no-monitoring
+  level: SHOULD
+  category: feature-store
+  description: "Feature Store 应监控特征分布偏移"
+  enforcer: cr
+  pattern: "FeatureStore|feature_store|feast"
+  message: "应监控特征分布偏移（Data Drift）以保障模型质量"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.py", "**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: data-no-mlops-no-experiment
+  level: MUST
+  category: mlops
+  description: "ML 实验必须使用实验跟踪工具"
+  enforcer: cr
+  pattern: "sklearn\\.fit|model\\.fit|torch\\.train|tf\\.fit"
+  message: "ML 训练应使用 MLflow 或 W&B 跟踪实验参数和指标"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.py"]
+  references: []
+
+- id: data-no-mlops-no-model-registry
+  level: MUST
+  category: mlops
+  description: "ML 模型必须注册到模型仓库"
+  enforcer: cr
+  pattern: "save_model|torch\\.save|pickle\\.dinternal-monitoring"
+  message: "模型应注册到 Model Registry（如 MLflow）而非直接保存文件"
+  action: block
+  severity: P1
+  applies_to: ["**/*.py"]
+  references: []
+
+- id: data-no-quality-no-gate
+  level: MUST
+  category: quality
+  description: "数据管道必须设置质量门"
+  enforcer: cr
+  pattern: ""
+  message: "数据管道应配置 Great Expectations 或 Deequ 质量门"
+  action: block
+  severity: P1
+  applies_to: ["**/*.py", "**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: data-no-gdpr-no-consent
+  level: MUST
+  category: gdpr
+  description: "GDPR: 处理个人数据前必须获取同意"
+  enforcer: cr
+  pattern: "(email|phone|address|name|birth|ssn)\\s*(=|:|,)"
+  message: "处理个人数据前必须获取用户同意并记录"
+  action: block
+  severity: P0
+  applies_to: ["**/*.py", "**/*.java", "**/*.scala", "**/*.sql"]
+  references: []
+
+- id: data-no-gdpr-no-erasure
+  level: MUST
+  category: gdpr
+  description: "GDPR: 必须支持数据删除请求"
+  enforcer: cr
+  pattern: ""
+  message: "系统必须实现数据删除功能以响应 GDPR 删除请求"
+  action: block
+  severity: P0
+  applies_to: ["**/*.py", "**/*.java", "**/*.scala"]
+  references: []
+
+- id: data-no-ccpa-no-opt-out
+  level: MUST
+  category: ccpa
+  description: "CCPA: 必须支持数据出售退出"
+  enforcer: cr
+  pattern: ""
+  message: "系统必须实现数据出售退出机制以符合 CCPA 要求"
+  action: block
+  severity: P0
+  applies_to: ["**/*.py", "**/*.java", "**/*.scala"]
+  references: []

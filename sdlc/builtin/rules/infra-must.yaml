@@ -285,3 +285,495 @@
   severity: P2
   applies_to: ["**/*.tf"]
   references: []
+
+- id: infra-no-pod-run-as-root
+  level: MUST
+  category: k8s-security
+  description: "Kubernetes Pod 不应以 root 运行"
+  enforcer: cr
+  pattern: "runAsUser\\s*:\\s*0"
+  message: "Pod 安全上下文应设置 runAsUser 为非零值"
+  action: block
+  severity: P0
+  applies_to: ["**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: infra-no-pod-privilege-esc
+  level: MUST
+  category: k8s-security
+  description: "Pod 必须禁止权限提升"
+  enforcer: cr
+  pattern: "allowPrivilegeEscalation\\s*:\\s*true"
+  message: "安全上下文必须设置 allowPrivilegeEscalation: false"
+  action: block
+  severity: P0
+  applies_to: ["**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: infra-no-pod-capabilities-add
+  level: MUST
+  category: k8s-security
+  description: "Pod 不应添加额外的 Linux 能力"
+  enforcer: cr
+  pattern: "add\\s*:\\s*-.+(?!ALL|NET_ADMIN|SYS_ADMIN)"
+  message: "不应添加额外的 Linux capabilities，请遵循最小权限原则"
+  action: block
+  severity: P0
+  applies_to: ["**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: infra-no-pod-service-account-token
+  level: MUST
+  category: k8s-security
+  description: "不需要访问 API 的 Pod 应禁用自动挂载 ServiceAccount Token"
+  enforcer: cr
+  pattern: "automountServiceAccountToken\\s*:\\s*true"
+  message: "不需要 API 访问的 Pod 应设置 automountServiceAccountToken: false"
+  action: block
+  severity: P0
+  applies_to: ["**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: infra-no-pod-no-liveness
+  level: SHOULD
+  category: k8s-reliability
+  description: "Pod 应配置存活探针"
+  enforcer: cr
+  pattern: "containers\\s*:(?!.*livenessProbe)"
+  message: "容器应配置 livenessProbe 以确保自动重启不健康的实例"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: infra-no-pod-no-readiness
+  level: SHOULD
+  category: k8s-reliability
+  description: "Pod 应配置就绪探针"
+  enforcer: cr
+  pattern: "containers\\s*:(?!.*readinessProbe)"
+  message: "容器应配置 readinessProbe 以确保流量只发送到就绪的实例"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: infra-no-pod-no-topology
+  level: SHOULD
+  category: k8s-reliability
+  description: "Pod 反亲和性应配置拓扑分布"
+  enforcer: cr
+  pattern: "topologySpreadConstraints"
+  message: "建议使用 topologySpreadConstraints 确保 Pod 在拓扑域间均匀分布"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: infra-no-helm-no-values-schema
+  level: MUST
+  category: helm
+  description: "Helm Chart 必须包含 values.schema.json"
+  enforcer: cr
+  pattern: ""
+  message: "Helm Chart 必须包含 values.schema.json 以验证 values.yaml"
+  action: block
+  severity: P1
+  applies_to: ["**/Chart.yaml"]
+  references: []
+
+- id: infra-no-helm-no-readme
+  level: SHOULD
+  category: helm
+  description: "Helm Chart 应包含 README.md"
+  enforcer: cr
+  pattern: ""
+  message: "Helm Chart 应包含 README.md 说明安装和配置方法"
+  action: warn
+  severity: P3
+  applies_to: ["**/Chart.yaml"]
+  references: []
+
+- id: infra-no-helm-crd-in-template
+  level: MUST
+  category: helm
+  description: "CRD 不应放在 templates 目录中"
+  enforcer: cr
+  pattern: ""
+  message: "CRD 应放在 crds/ 目录而非 templates/ 目录"
+  action: block
+  severity: P1
+  applies_to: ["**/templates/**"]
+  references: []
+
+- id: infra-no-helm-hardcoded-image
+  level: MUST
+  category: helm
+  description: "Helm Chart 中镜像不应硬编码"
+  enforcer: cr
+  pattern: "image\\s*:\\s*[\"']?[a-z]+/[a-z]+:[\\d.]+[\"']?"
+  message: "镜像应通过 .Values.image 引用而非硬编码"
+  action: block
+  severity: P1
+  applies_to: ["**/templates/**/*.yaml", "**/templates/**/*.yml"]
+  references: []
+
+- id: infra-no-tf-module-no-variables
+  level: MUST
+  category: terraform
+  description: "Terraform 模块必须声明 variables.tf"
+  enforcer: cr
+  pattern: ""
+  message: "Terraform 模块必须声明 variables.tf 和 outputs.tf"
+  action: block
+  severity: P1
+  applies_to: ["**/main.tf"]
+  references: []
+
+- id: infra-no-tf-module-no-outputs
+  level: MUST
+  category: terraform
+  description: "Terraform 模块必须声明 outputs.tf"
+  enforcer: cr
+  pattern: ""
+  message: "Terraform 模块必须声明 outputs.tf 以暴露输出值"
+  action: block
+  severity: P1
+  applies_to: ["**/main.tf"]
+  references: []
+
+- id: infra-no-tf-no-version-constraint
+  level: MUST
+  category: terraform
+  description: "Terraform provider 必须指定版本约束"
+  enforcer: cr
+  pattern: "provider\\s+\"\\w+\"\\s*\\{"
+  message: "Terraform provider 必须指定版本约束以防止破坏性变更"
+  action: block
+  severity: P1
+  applies_to: ["**/*.tf"]
+  references: []
+
+- id: infra-no-tf-no-backend
+  level: MUST
+  category: terraform
+  description: "Terraform 必须配置远程状态后端"
+  enforcer: cr
+  pattern: "terraform\\s*\\{(?!.*backend)"
+  message: "Terraform 必须配置远程状态后端（如 S3、GCS）以支持团队协作"
+  action: block
+  severity: P1
+  applies_to: ["**/*.tf"]
+  references: []
+
+- id: infra-no-tf-variable-no-description
+  level: SHOULD
+  category: terraform
+  description: "Terraform variable 必须包含 description"
+  enforcer: cr
+  pattern: "variable\\s+\"\\w+\"\\s*\\{(?!.*description)"
+  message: "Terraform variable 应包含 description 说明用途"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.tf"]
+  references: []
+
+- id: infra-no-tf-variable-no-type
+  level: MUST
+  category: terraform
+  description: "Terraform variable 必须声明类型"
+  enforcer: cr
+  pattern: "variable\\s+\"\\w+\"\\s*\\{(?!.*type)"
+  message: "Terraform variable 必须声明 type 以确保输入验证"
+  action: block
+  severity: P1
+  applies_to: ["**/*.tf"]
+  references: []
+
+- id: infra-no-aws-iam-wildcard
+  level: MUST
+  category: aws-iam
+  description: "AWS IAM 策略禁止使用通配符"
+  enforcer: cr
+  pattern: "Resource\\s*:\\s*\"\\*\"|Action\\s*:\\s*\"\\*\""
+  message: "IAM 策略应遵循最小权限原则，禁止使用 Resource: * 或 Action: *"
+  action: block
+  severity: P0
+  applies_to: ["**/*.tf", "**/*.json", "**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: infra-no-aws-iam-no-mfa
+  level: MUST
+  category: aws-iam
+  description: "IAM 用户必须启用 MFA"
+  enforcer: cr
+  pattern: "aws_iam_user\\s+\\w+"
+  message: "IAM 用户必须启用多因素认证（MFA）"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.tf"]
+  references: []
+
+- id: infra-no-aws-iam-access-key-age
+  level: SHOULD
+  category: aws-iam
+  description: "IAM Access Key 应定期轮换"
+  enforcer: cr
+  pattern: "aws_iam_access_key\\s+\\w+"
+  message: "IAM Access Key 应设置轮换策略，不超过90天"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.tf"]
+  references: []
+
+- id: infra-no-azure-rbac-wildcard
+  level: MUST
+  category: azure
+  description: "Azure RBAC 不应分配 Owner 广泛角色"
+  enforcer: cr
+  pattern: "role_definition_name\\s*=\\s*\"Owner\""
+  message: "Azure RBAC 应使用最小权限角色，避免分配 Owner 角色"
+  action: block
+  severity: P0
+  applies_to: ["**/*.tf"]
+  references: []
+
+- id: infra-no-azure-rbac-no-managed-identity
+  level: SHOULD
+  category: azure
+  description: "Azure 资源应使用 Managed Identity"
+  enforcer: cr
+  pattern: "azurerm_.*_.*\\s+\\w+"
+  message: "Azure 资源应使用 Managed Identity 而非服务主体密钥"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.tf"]
+  references: []
+
+- id: infra-no-gcp-iam-wildcard
+  level: MUST
+  category: gcp
+  description: "GCP IAM 不应分配 roles/owner"
+  enforcer: cr
+  pattern: "role\\s*=\\s*\"roles/owner\""
+  message: "GCP IAM 应使用最小权限角色，避免分配 roles/owner"
+  action: block
+  severity: P0
+  applies_to: ["**/*.tf"]
+  references: []
+
+- id: infra-no-gcp-iam-service-account-key
+  level: SHOULD
+  category: gcp
+  description: "GCP 应使用 Workload Identity 而非服务账户密钥"
+  enforcer: cr
+  pattern: "google_service_account_key\\s+\\w+"
+  message: "建议使用 Workload Identity 而非服务账户密钥文件"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.tf"]
+  references: []
+
+- id: infra-no-monitoring-no-alert
+  level: MUST
+  category: monitoring
+  description: "关键服务必须配置告警"
+  enforcer: cr
+  pattern: "aws_cloudwatch_metric_alarm|google_monitoring_alert_policy|azurerm_monitor_metric_alert"
+  message: "关键服务必须配置监控告警"
+  action: block
+  severity: P1
+  applies_to: ["**/*.tf", "**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: infra-no-monitoring-no-slo
+  level: SHOULD
+  category: monitoring
+  description: "关键服务应定义 SLO"
+  enforcer: cr
+  pattern: ""
+  message: "关键服务应定义 SLO/SLI 并配置错误预算告警"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: infra-no-monitoring-no-dashboard
+  level: SHOULD
+  category: monitoring
+  description: "服务应配置监控仪表板"
+  enforcer: cr
+  pattern: ""
+  message: "建议为关键服务配置 Grafana/CloudWatch Dashboard"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.yaml", "**/*.yml", "**/*.json"]
+  references: []
+
+- id: infra-no-logging-no-aggregation
+  level: MUST
+  category: logging
+  description: "生产环境必须配置日志聚合"
+  enforcer: cr
+  pattern: ""
+  message: "生产环境必须配置日志聚合（如 ELK、CloudWatch Logs、Stackdriver）"
+  action: block
+  severity: P1
+  applies_to: ["**/*.tf", "**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: infra-no-logging-no-retention
+  level: SHOULD
+  category: logging
+  description: "日志应配置保留策略"
+  enforcer: cr
+  pattern: "retention_in_days\\s*=\\s*0|retention\\s*:\\s*0"
+  message: "日志应配置合理的保留期以控制存储成本和满足合规要求"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.tf", "**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: infra-no-logging-no-structured
+  level: SHOULD
+  category: logging
+  description: "应用日志应使用结构化格式"
+  enforcer: cr
+  pattern: ""
+  message: "应用日志应使用 JSON 结构化格式，便于检索和分析"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: infra-no-secret-no-rotation
+  level: MUST
+  category: secret
+  description: "密钥必须配置自动轮换"
+  enforcer: cr
+  pattern: "aws_secretsmanager_secret\\s+\\w+"
+  message: "Secrets Manager 中的密钥应配置自动轮换"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.tf"]
+  references: []
+
+- id: infra-no-secret-in-env-var
+  level: MUST
+  category: secret
+  description: "禁止在环境变量中传递密钥"
+  enforcer: cr
+  pattern: "value\\s*:\\s*\"[\"']?(password|secret|token|api_key|apikey)"
+  message: "密钥应通过 Secret Manager 或 Volume 挂载，不应在环境变量中明文传递"
+  action: block
+  severity: P0
+  applies_to: ["**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: infra-no-secret-repo-committed
+  level: MUST
+  category: secret
+  description: "密钥文件不应提交到版本控制"
+  enforcer: cr
+  pattern: ""
+  message: "密钥文件（.pem, .key, .p12 等）不应提交到版本控制"
+  action: block
+  severity: P0
+  applies_to: ["**/*.pem", "**/*.key", "**/*.p12", "**/*.pfx"]
+  references: []
+
+- id: infra-no-dr-no-backup
+  level: MUST
+  category: dr
+  description: "灾难恢复必须配置数据备份"
+  enforcer: cr
+  pattern: "(aws_db_instance|aws_rds_cluster|google_sql_database_instance|azurerm_mssql_database)\\s+\\w+"
+  message: "数据库实例必须配置自动备份"
+  action: block
+  severity: P0
+  applies_to: ["**/*.tf"]
+  references: []
+
+- id: infra-no-dr-no-cross-region
+  level: SHOULD
+  category: dr
+  description: "关键服务应配置跨区域冗余"
+  enforcer: cr
+  pattern: "aws_db_instance\\s+\\w+"
+  message: "关键数据库应配置跨区域只读副本以提高灾难恢复能力"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.tf"]
+  references: []
+
+- id: infra-no-dr-no-runbook
+  level: SHOULD
+  category: dr
+  description: "关键服务应有故障恢复手册"
+  enforcer: cr
+  pattern: ""
+  message: "关键服务应编写故障恢复手册（Runbook）并定期演练"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.md"]
+  references: []
+
+- id: infra-no-bcp-no-chaos
+  level: SHOULD
+  category: bcp
+  description: "生产环境应进行混沌工程测试"
+  enforcer: cr
+  pattern: ""
+  message: "建议使用 Chaos Monkey 或 Litmus 进行混沌工程测试以验证 BCP"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: infra-no-bcp-no-rto-rpo
+  level: SHOULD
+  category: bcp
+  description: "关键服务应定义 RTO 和 RPO"
+  enforcer: cr
+  pattern: ""
+  message: "关键服务应定义恢复时间目标（RTO）和恢复点目标（RPO）"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.md", "**/*.yaml", "**/*.yml"]
+  references: []
+
+- id: infra-no-docker-latest-tag
+  level: MUST
+  category: docker
+  description: "Dockerfile 中 FROM 不应使用 latest 标签"
+  enforcer: cr
+  pattern: "FROM\\s+\\w+(?::latest)?\\s*$"
+  message: "Dockerfile FROM 指令必须使用明确的版本标签"
+  action: block
+  severity: P1
+  applies_to: ["**/Dockerfile*", "**/*.dockerfile"]
+  references: []
+
+- id: infra-no-docker-root-user
+  level: MUST
+  category: docker
+  description: "Dockerfile 应指定非 root 用户"
+  enforcer: cr
+  pattern: "FROM.*(?!.+USER\\s+\\w+)"
+  message: "Dockerfile 应添加 USER 指令指定非 root 运行用户"
+  action: warn
+  severity: P1
+  applies_to: ["**/Dockerfile*", "**/*.dockerfile"]
+  references: []
+
+- id: infra-no-docker-apt-no-cleanup
+  level: SHOULD
+  category: docker
+  description: "Dockerfile 中 apt-get 安装后应清理缓存"
+  enforcer: cr
+  pattern: "apt-get\\s+install(?!.*rm\\s+-rf|.*&&\\s*rm)"
+  message: "apt-get install 后应清理 /var/lib/apt/lists/ 减小镜像大小"
+  action: warn
+  severity: P2
+  applies_to: ["**/Dockerfile*", "**/*.dockerfile"]
+  references: []

@@ -297,3 +297,423 @@
   severity: P3
   applies_to: ["**/*.go"]
   references: []
+
+- id: go-no-context-background
+  level: SHOULD
+  category: context
+  description: "避免使用 context.Background() 替代请求上下文"
+  enforcer: cr
+  pattern: "context\\.Background\\s*\\("
+  message: "请求处理中应传递请求上下文而非使用 context.Background()"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-context-todo
+  level: SHOULD
+  category: context
+  description: "不应遗留 context.TODO() 在生产代码中"
+  enforcer: cr
+  pattern: "context\\.TODO\\s*\\("
+  message: "context.TODO() 是临时占位符，请在上线前替换为合适的上下文"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-context-not-propagated
+  level: MUST
+  category: context
+  description: "函数接收 context 时必须向下传递"
+  enforcer: cr
+  pattern: "func\\s+\\w+\\s*\\(\\s*ctx\\s+context\\.Context.*\\)\\s*\\{(?!.*ctx)"
+  message: "接收 ctx 参数的函数应将 context 传递给下游调用"
+  action: block
+  severity: P1
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-error-wrapping-fmt
+  level: SHOULD
+  category: error
+  description: "错误包装应使用 fmt.Errorf %w 而非 %v"
+  enforcer: cr
+  pattern: "fmt\\.Errorf\\s*\\(.*%v(?!.*%w)"
+  message: "错误包装应使用 %w 动词以保留错误链，便于 errors.Is/As 判断"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-error-check-ignored
+  level: MUST
+  category: error
+  description: "defer 中的错误也必须检查"
+  enforcer: cr
+  pattern: "defer\\s+\\w+\\.Close\\s*\\((?!.*err)"
+  message: "defer Close() 的错误也应检查，请使用 defer func() { err = f.Close() }()"
+  action: block
+  severity: P1
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-error-string-compare
+  level: SHOULD
+  category: error
+  description: "错误比较应使用 errors.Is 而非字符串匹配"
+  enforcer: cr
+  pattern: "err\\.Error\\(\\)\\s*==|strings\\.Contains\\s*\\(.*err\\.Error"
+  message: "应使用 errors.Is/As 判断错误类型，而非比较错误消息字符串"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-interface-large
+  level: SHOULD
+  category: design
+  description: "接口方法不应超过5个"
+  enforcer: cr
+  pattern: "type\\s+\\w+\\s+interface\\s*\\{"
+  message: "接口应保持小巧（Go 惯例），方法过多应拆分"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-interface-empty-method
+  level: SHOULD
+  category: design
+  description: "接口应从消费者而非实现者定义"
+  enforcer: cr
+  pattern: "type\\s+\\w+\\s+interface\\s*\\{\\s*\\w+\\([^)]*\\)\\s*\\w+"
+  message: "建议在使用处定义小接口，而非提前定义大接口"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-struct-return-interface
+  level: SHOULD
+  category: design
+  description: "函数应返回结构体指针而非接口"
+  enforcer: cr
+  pattern: "func\\s+New\\w+\\s*\\([^)]*\\)\\s+\\w+Interface"
+  message: "Go 惯例是返回具体类型，让调用者按需转为接口"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-channel-unbuffered-high-load
+  level: SHOULD
+  category: channel
+  description: "高负载场景应使用带缓冲 channel"
+  enforcer: cr
+  pattern: "make\\s*\\(\\s*chan\\s+\\w+\\s*\\)"
+  message: "高负载场景下无缓冲 channel 可能成为瓶颈，请考虑缓冲大小"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-channel-leak
+  level: MUST
+  category: channel
+  description: "channel 必须在所有路径上关闭"
+  enforcer: cr
+  pattern: "make\\s*\\(\\s*chan\\s+\\w+\\s*\\)(?!.*close)"
+  message: "channel 生产者必须确保关闭 channel，防止 goroutine 泄漏"
+  action: block
+  severity: P1
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-select-without-default
+  level: SHOULD
+  category: channel
+  description: "select 中应有 default 分支或超时"
+  enforcer: cr
+  pattern: "select\\s*\\{(?!.*default|.*time\\.After)"
+  message: "select 语句应有 default 分支或超时机制以避免永久阻塞"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-select-case-continue
+  level: SHOULD
+  category: channel
+  description: "select case 不应使用 continue"
+  enforcer: cr
+  pattern: "select\\s*\\{.*case.*continue"
+  message: "select case 中的 continue 会跳出 select 而非循环，请确认意图"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-test-no-t-run
+  level: SHOULD
+  category: testing
+  description: "测试函数应使用 t.Run 组织子测试"
+  enforcer: cr
+  pattern: "func\\s+Test\\w+\\s*\\(\\s*t\\s*\\*testing\\.T\\s*\\)\\s*\\{"
+  message: "建议使用 t.Run 组织子测试，提升测试输出可读性"
+  action: warn
+  severity: P3
+  applies_to: ["**/*_test.go"]
+  references: []
+
+- id: go-no-test-no-table-driven
+  level: SHOULD
+  category: testing
+  description: "多场景测试应使用表驱动模式"
+  enforcer: cr
+  pattern: "func\\s+Test\\w+\\s*\\(\\s*t\\s*\\*testing\\.T\\s*\\)\\s*\\{\\s*\\n\\s*(if|for)"
+  message: "多场景测试应使用表驱动（table-driven）模式组织"
+  action: warn
+  severity: P3
+  applies_to: ["**/*_test.go"]
+  references: []
+
+- id: go-no-test-build-tag
+  level: SHOULD
+  category: testing
+  description: "测试文件不应包含构建标签"
+  enforcer: cr
+  pattern: "//go:build\\s+(?!ignore)"
+  message: "测试文件不应使用构建标签排除，所有测试应始终可运行"
+  action: warn
+  severity: P2
+  applies_to: ["**/*_test.go"]
+  references: []
+
+- id: go-no-benchmark-missing
+  level: SHOULD
+  category: benchmarking
+  description: "性能关键代码应编写基准测试"
+  enforcer: cr
+  pattern: ""
+  message: "性能关键路径应编写 Benchmark 函数以跟踪性能退化"
+  action: warn
+  severity: P3
+  applies_to: ["**/*_test.go"]
+  references: []
+
+- id: go-no-benchmark-no-b-n
+  level: SHOULD
+  category: benchmarking
+  description: "基准测试应使用 b.N 控制循环"
+  enforcer: cr
+  pattern: "func\\s+Benchmark\\w+\\s*\\(\\s*b\\s*\\*testing\\.B(?!.*b\\.N)"
+  message: "基准测试循环应使用 for i := 0; i < b.N; i++"
+  action: warn
+  severity: P2
+  applies_to: ["**/*_test.go"]
+  references: []
+
+- id: go-no-fuzz-missing
+  level: SHOULD
+  category: fuzzing
+  description: "解析外部输入的函数应编写模糊测试"
+  enforcer: cr
+  pattern: "func\\s+(Parse|Decode|Unmarshal|Read)\\w+"
+  message: "解析外部输入的函数应编写 Fuzz 浽数以确保鲁棒性"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-cgo-no-comment
+  level: MUST
+  category: cgo
+  description: "CGo 代码必须包含安全说明注释"
+  enforcer: cr
+  pattern: "import\\s+\"C\""
+  message: "CGo 调用必须注释说明 C 代码来源和安全性验证"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-cgo-pointer-escape
+  level: MUST
+  category: cgo
+  description: "CGo 中禁止传递 Go 指针到 C"
+  enforcer: cr
+  pattern: "C\\.\\w+\\s*\\(.*unsafe\\.Pointer"
+  message: "传递 Go 指针到 C 代码可能导致 GC 问题，请使用 C.malloc 分配"
+  action: block
+  severity: P0
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-module-no-go-sum
+  level: MUST
+  category: module
+  description: "Go 项目必须包含 go.sum 文件"
+  enforcer: cr
+  pattern: ""
+  message: "Go 项目必须包含 go.sum 以确保依赖完整性"
+  action: block
+  severity: P1
+  applies_to: ["**/go.mod"]
+  references: []
+
+- id: go-no-module-replace-local
+  level: SHOULD
+  category: module
+  description: "go.mod 中不应存在本地 replace 指令"
+  enforcer: cr
+  pattern: "replace\\s+\\w+\\s*=>\\s*\\./|replace\\s+\\w+\\s*=>\\s*\\.\\./"
+  message: "本地 replace 指令不应提交到版本控制，请使用 go.work 管理多模块"
+  action: warn
+  severity: P2
+  applies_to: ["**/go.mod"]
+  references: []
+
+- id: go-no-generics-no-constraint
+  level: SHOULD
+  category: generics
+  description: "泛型类型参数应有约束"
+  enforcer: cr
+  pattern: "\\[\\s*\\w+\\s+any\\s*\\]"
+  message: "泛型类型参数应有具体约束而非使用 any"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-generics-type-assertion
+  level: SHOULD
+  category: generics
+  description: "泛型函数中避免使用类型断言"
+  enforcer: cr
+  pattern: "\\[\\s*\\w+\\s+\\w+\\s*\\].*\\.\\(\\s*type\\s*\\)"
+  message: "泛型函数中应通过约束方法操作，避免类型断言"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-time-sleep-poll
+  level: SHOULD
+  category: reliability
+  description: "避免使用 time.Sleep 轮询"
+  enforcer: cr
+  pattern: "time\\.Sleep.*for\\s*\\{|for\\s*\\{.*time\\.Sleep"
+  message: "轮询应使用 time.NewTicker 或条件变量，而非 time.Sleep"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-defer-in-loop
+  level: SHOULD
+  category: reliability
+  description: "避免在循环中使用 defer"
+  enforcer: cr
+  pattern: "for\\s+.*\\{[^}]*defer\\s+"
+  message: "循环中的 defer 会延迟到函数结束才执行，可能导致资源泄漏"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-sprintf-concat
+  level: SHOULD
+  category: quality
+  description: "字符串拼接不应使用 fmt.Sprintf"
+  enforcer: cr
+  pattern: "fmt\\.Sprintf\\s*\\(\\s*[\"'][^%]*[\"']\\s*\\)"
+  message: "无格式化参数时请使用字符串拼接 + 而非 fmt.Sprintf"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-http-default-client
+  level: MUST
+  category: reliability
+  description: "禁止使用 http.DefaultClient"
+  enforcer: cr
+  pattern: "http\\.DefaultClient|http\\.Get\\s*\\(|http\\.Post\\s*\\("
+  message: "应创建自定义 http.Client 并设置超时，禁止使用 DefaultClient"
+  action: block
+  severity: P1
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-http-no-timeout
+  level: MUST
+  category: reliability
+  description: "HTTP 客户端必须设置超时"
+  enforcer: cr
+  pattern: "http\\.Client\\s*\\{\\s*\\}"
+  message: "HTTP 客户端必须设置 Timeout 字段以防止请求挂起"
+  action: block
+  severity: P1
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-json-decode-body
+  level: SHOULD
+  category: reliability
+  description: "应使用 json.NewDecoder 解析 HTTP 请求体"
+  enforcer: cr
+  pattern: "json\\.Unmarshal\\s*\\(.*ioutil\\.ReadAll"
+  message: "HTTP 请求体应使用 json.NewDecoder(r.Body).Decode() 直接解析"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-ioutil-deprecated
+  level: MUST
+  category: quality
+  description: "ioutil 包已在 Go 1.16 中废弃"
+  enforcer: cr
+  pattern: "ioutil\\."
+  message: "ioutil 已废弃，请使用 io 和 os 包中的替代函数"
+  action: block
+  severity: P1
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-sprintf-concat-error
+  level: SHOULD
+  category: error
+  description: "错误消息拼接不应使用 fmt.Sprintf + errors.New"
+  enforcer: cr
+  pattern: "errors\\.New\\s*\\(\\s*fmt\\.Sprintf"
+  message: "请使用 fmt.Errorf 代替 errors.New(fmt.Sprintf(...))"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-mutex-value
+  level: MUST
+  category: design
+  description: "Mutex 不应作为值类型传递"
+  enforcer: cr
+  pattern: "func\\s+\\w+\\s*\\([^)]*sync\\.(Mutex|RWMutex)\\s+\\w+"
+  message: "Mutex 应通过指针传递，值传递会导致锁失效"
+  action: block
+  severity: P0
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: go-no-waitgroup-add-in-goroutine
+  level: MUST
+  category: concurrency
+  description: "WaitGroup.Add 不应在 goroutine 内调用"
+  enforcer: cr
+  pattern: "go\\s+func.*Add\\s*\\(\\s*1\\s*\\)"
+  message: "WaitGroup.Add() 应在启动 goroutine 前调用，避免竞态条件"
+  action: block
+  severity: P1
+  applies_to: ["**/*.go"]
+  references: []

@@ -38,6 +38,7 @@ import click
 @click.option("--max-cost", type=float, default=5.0, help="Cost limit in USD")
 @click.option("--timeout", type=int, help="Global timeout in seconds")
 @click.option("--tag", multiple=True, help="Custom tags KEY=VAL")
+@click.option("-c", "--concurrency", type=int, default=1, help="Max concurrent stages (1-3)")
 def run(
     input,
     profile,
@@ -55,6 +56,7 @@ def run(
     max_cost,
     timeout,
     tag,
+    concurrency,
 ):
     """Execute an SDLC pipeline."""
     import asyncio
@@ -116,6 +118,7 @@ def run(
                 input_text=raw_input,
                 profile_id=profile if profile != "auto" else None,
                 adapter_id=adapter,
+                concurrency=concurrency,
             )
         )
 
