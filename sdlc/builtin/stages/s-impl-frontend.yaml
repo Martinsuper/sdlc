@@ -1,0 +1,18 @@
+id: s-impl-frontend
+name: 前端实现
+category: impl
+description: 根据架构设计实现前端代码
+subagent: SA-4
+model: claude-sonnet-4-6
+required_artifacts:
+  - arch.md
+produces_artifacts:
+  - frontend-code
+pre_kb_load:
+  - standards/coding-style.md
+  - conventions.md
+post_kb_update: []
+timeout: 7200
+retry:
+  max: 2
+  backoff: exponential

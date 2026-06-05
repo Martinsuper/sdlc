@@ -1,0 +1,18 @@
+id: s-cr
+name: 代码审查
+category: review
+description: 对后端代码进行自动化代码审查
+subagent: SA-6
+model: claude-sonnet-4-6
+required_artifacts:
+  - backend-code
+produces_artifacts:
+  - cr-report
+pre_kb_load:
+  - standards/review-process.md
+  - conventions.md
+post_kb_update: []
+timeout: 1800
+retry:
+  max: 2
+  backoff: exponential

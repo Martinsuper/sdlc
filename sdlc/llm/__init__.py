@@ -1,5 +1,6 @@
 from sdlc.llm.anthropic_provider import AnthropicProvider, LLMRateLimitError, LLMTimeoutError
 from sdlc.llm.client import ModelRouter, MultiLLMClient
+from sdlc.llm.cost import CostTracker
 from sdlc.llm.models import (
     CompletionRequest,
     CompletionResponse,
@@ -17,6 +18,7 @@ __all__ = [
     "CompletionRequest",
     "CompletionResponse",
     "ContentBlock",
+    "CostTracker",
     "LLMRateLimitError",
     "LLMTimeoutError",
     "Message",

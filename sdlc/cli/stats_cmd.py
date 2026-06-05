@@ -30,6 +30,16 @@ def stats(since, by_model, by_stage, as_json):
     failed = sum(1 for p in pipelines if p.status == "failed")
     total_cost = sum(p.total_cost for p in pipelines)
 
+    # Query cost-by-model from llm_calls table
+    cost_by_model: dict[str, float] = {}
+    try:
+        rows = store.db.execute(
+            "SELECT model, SUM(cost_usd) as cost FROM llm_calls GROUP BY model"
+        ).fetchall()
+        cost_by_model = {row["model"]: round(float(row["cost"]), 4) for row in rows}
+    except Exception:
+        cost_by_model = {}
+
     result = {
         "since": since,
         "total": total,
@@ -37,6 +47,7 @@ def stats(since, by_model, by_stage, as_json):
         "failed": failed,
         "success_rate": round(completed / total * 100, 1) if total > 0 else 0,
         "total_cost": round(total_cost, 2),
+        "cost_by_model": cost_by_model,
     }
 
     if as_json:
@@ -55,7 +66,11 @@ def stats(since, by_model, by_stage, as_json):
         click.echo("  Success Rate: N/A")
     click.echo(f"  Total Cost:   ${total_cost:.2f}")
 
-    if by_model:
-        click.echo("\n  Cost by model (M2)")
+    if by_model and cost_by_model:
+        click.echo("\n  Cost by model:")
+        for model_name, model_cost in cost_by_model.items():
+            click.echo(f"    {model_name}: ${model_cost:.4f}")
+    elif by_model:
+        click.echo("\n  Cost by model: no data")
     if by_stage:
         click.echo("\n  Duration by stage (M2)")

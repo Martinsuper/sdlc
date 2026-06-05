@@ -1,0 +1,17 @@
+id: s-package
+name: 打包
+category: package
+description: 将测试通过且审查通过的代码打包为可部署制品
+subagent: SA-8
+model: claude-sonnet-4-6
+required_artifacts:
+  - test-results
+  - cr-report
+produces_artifacts:
+  - package
+pre_kb_load: []
+post_kb_update: []
+timeout: 1800
+retry:
+  max: 2
+  backoff: exponential

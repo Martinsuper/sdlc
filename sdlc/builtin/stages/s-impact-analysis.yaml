@@ -1,0 +1,16 @@
+id: s-impact-analysis
+name: 影响分析
+category: analysis
+description: 分析变更对现有系统的影响范围
+subagent: SA-2
+model: claude-sonnet-4-6
+required_artifacts: []
+produces_artifacts: []
+pre_kb_load:
+  - architecture/context-map.md
+  - architecture/dependency-graph.md
+post_kb_update: []
+timeout: 1200
+retry:
+  max: 2
+  backoff: exponential

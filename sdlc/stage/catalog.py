@@ -11,6 +11,11 @@ class StageNotFoundError(SdlcError):
     pass
 
 
+def _builtin_stages_dir() -> Path:
+    """Return the path to sdlc/builtin/stages/."""
+    return Path(__file__).resolve().parent.parent / "builtin" / "stages"
+
+
 class StageCatalog:
     def __init__(self) -> None:
         self._stages: dict[str, StageDef] = {}
@@ -32,6 +37,46 @@ class StageCatalog:
 
     def for_category(self, category: str) -> list[StageDef]:
         return [s for s in self._stages.values() if s.category == category]
+
+    def load_from_yaml_file(self, path: Path) -> StageDef | None:
+        """Load a single stage definition from a YAML file (one stage per file)."""
+        data = load_yaml(path)
+        if not data or not isinstance(data, dict):
+            return None
+        stage_id = data.get("id", "")
+        if not stage_id:
+            return None
+        retry = data.get("retry", {})
+        stage = StageDef(
+            id=stage_id,
+            name=data.get("name", ""),
+            category=data.get("category", ""),
+            description=data.get("description", ""),
+            subagent=data.get("subagent", ""),
+            model=data.get("model", "claude-sonnet-4-20250514"),
+            required_artifacts=data.get("required_artifacts", []),
+            produces_artifacts=data.get("produces_artifacts", []),
+            pre_kb_load=data.get("pre_kb_load", []),
+            post_kb_update=data.get("post_kb_update", []),
+            timeout=data.get("timeout", 1800),
+            max_retries=retry.get("max", 2) if isinstance(retry, dict) else data.get("max_retries", 2),
+            retry_backoff=retry.get("backoff", "exponential") if isinstance(retry, dict) else data.get("retry_backoff", "exponential"),
+            gates=data.get("gates", []),
+        )
+        self.register(stage)
+        return stage
+
+    def load_builtin(self) -> int:
+        """Load all builtin stage YAML files from sdlc/builtin/stages/."""
+        stages_dir = _builtin_stages_dir()
+        if not stages_dir.is_dir():
+            return 0
+        count = 0
+        for yaml_file in sorted(stages_dir.glob("*.yaml")):
+            result = self.load_from_yaml_file(yaml_file)
+            if result is not None:
+                count += 1
+        return count
 
     def load_from_yaml(self, path: Path) -> int:
         data = load_yaml(path)

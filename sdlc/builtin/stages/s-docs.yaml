@@ -1,0 +1,18 @@
+id: s-docs
+name: 文档生成
+category: docs
+description: 自动生成项目文档与API文档
+subagent: SA-11
+model: claude-sonnet-4-6
+required_artifacts: []
+produces_artifacts:
+  - docs
+pre_kb_load:
+  - conventions.md
+post_kb_update:
+  - target: architecture/context-map.md
+    op: append
+timeout: 1800
+retry:
+  max: 2
+  backoff: exponential

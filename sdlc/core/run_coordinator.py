@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from typing import Any
 
 from sdlc.adapter import AdapterRegistry
@@ -6,6 +8,7 @@ from sdlc.core.entry_detector import EntryDetector
 from sdlc.core.models import PipelineResult
 from sdlc.core.pipeline_builder import PipelineBuilder
 from sdlc.gate import GateEngine
+from sdlc.llm.cost import CostTracker
 from sdlc.profile import ProfileRegistry
 from sdlc.stage import StageCatalog, StageRunner
 from sdlc.state import StateStore
@@ -22,6 +25,7 @@ class RunCoordinator:
         gate_engine: GateEngine | None = None,
         profile_registry: ProfileRegistry | None = None,
         adapter_registry: AdapterRegistry | None = None,
+        cost_tracker: CostTracker | None = None,
     ) -> None:
         self.state = state
         self.audit = audit
@@ -30,6 +34,7 @@ class RunCoordinator:
         self.gate_engine = gate_engine
         self.profile_registry = profile_registry or ProfileRegistry()
         self.adapter_registry = adapter_registry or AdapterRegistry()
+        self.cost_tracker = cost_tracker
         self.entry_detector = EntryDetector()
         self.pipeline_builder = PipelineBuilder(catalog)
         self.stage_runner = StageRunner(
@@ -81,9 +86,32 @@ class RunCoordinator:
             pipeline.stages, pipeline.id, context
         )
 
+        # Track costs if CostTracker is provided
+        total_cost = sum(r.get("cost_usd", 0.0) for r in stage_results)
+        if self.cost_tracker is not None:
+            for r in stage_results:
+                if r.get("cost_usd", 0.0) > 0:
+                    stage_def_id = r.get("stage_id", "")
+                    model = (self.catalog.has(stage_def_id) and self.catalog.get(stage_def_id).model) or "unknown"
+                    self.cost_tracker.record(
+                        model=model,
+                        input_tokens=0,
+                        output_tokens=0,
+                        cost_usd=r.get("cost_usd", 0.0),
+                    )
+            if self.cost_tracker.check_budget():
+                self.audit.emit(
+                    AuditEventType.COST_EXCEEDED,
+                    {
+                        "total_usd": self.cost_tracker.total_cost,
+                        "budget_usd": self.cost_tracker.max_budget,
+                        "pipeline_id": pipeline.id,
+                    },
+                    pipeline_id=pipeline.id,
+                )
+
         all_success = all(r["status"] == "SUCCESS" for r in stage_results)
         has_failed = any(r["status"] == "FAILED" for r in stage_results)
-        total_cost = sum(r.get("cost_usd", 0.0) for r in stage_results)
 
         if has_failed:
             final_status = "failed"

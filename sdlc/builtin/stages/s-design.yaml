@@ -1,0 +1,21 @@
+id: s-design
+name: 架构设计
+category: design
+description: 根据需求文档进行架构设计与接口定义
+subagent: SA-2
+model: claude-sonnet-4-6
+required_artifacts:
+  - prd.md
+produces_artifacts:
+  - arch.md
+  - interfaces.yaml
+pre_kb_load:
+  - architecture/component-catalog.md
+  - architecture/dependency-graph.md
+post_kb_update:
+  - target: architecture/context-map.md
+    op: append
+timeout: 3600
+retry:
+  max: 2
+  backoff: exponential

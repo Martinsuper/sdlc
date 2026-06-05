@@ -1,0 +1,16 @@
+id: s-deploy
+name: 部署
+category: deploy
+description: 将打包好的制品部署到目标环境
+subagent: SA-9
+model: claude-sonnet-4-6
+required_artifacts:
+  - package
+produces_artifacts:
+  - deploy-report
+pre_kb_load: []
+post_kb_update: []
+timeout: 3600
+retry:
+  max: 2
+  backoff: exponential
