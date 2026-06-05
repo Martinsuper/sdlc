@@ -51,7 +51,9 @@ class OpenAIProvider:
     async def stream(self, req: CompletionRequest) -> AsyncIterator[str]:
         oai_msgs = self._convert_messages(req)
         stream = await self.client.chat.completions.create(
-            model=req.model, messages=oai_msgs, stream=True  # type: ignore[arg-type]
+            model=req.model,
+            messages=oai_msgs,  # type: ignore[arg-type]
+            stream=True,
         )
         async for chunk in stream:  # type: ignore[union-attr]
             if chunk.choices and chunk.choices[0].delta.content:
