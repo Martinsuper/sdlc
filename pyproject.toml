@@ -1,6 +1,6 @@
 [project]
 name = "sdlc"
-version = "0.4.0"
+version = "1.0.0"
 description = "AI-driven full-lifecycle SDLC orchestration CLI tool"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -8,7 +8,7 @@ license = "MIT"
 authors = [{ name = "sdlc team" }]
 keywords = ["sdlc", "ai", "cli", "orchestration"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
