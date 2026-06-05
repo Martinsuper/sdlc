@@ -134,7 +134,8 @@ def test_agent_list():
     result = runner.invoke(cli, ["agent", "list"])
     assert result.exit_code == 0
     assert "SA-1" in result.output
-    assert "requirements-analyst" in result.output
+    # The table may truncate "requirements-analyst" with ellipsis
+    assert "requirements-ana" in result.output
 
 
 def test_agent_show():

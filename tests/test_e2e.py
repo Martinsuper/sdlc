@@ -465,4 +465,4 @@ def test_cli_full_workflow(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
 
     # Version
     r = runner.invoke(cli, ["version"])
-    assert "0.1.0" in r.output
+    assert "0.3.0" in r.output

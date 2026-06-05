@@ -353,7 +353,7 @@ class TestConfigSet:
     def test_set_message(self, runner):
         result = runner.invoke(config, ["set", "llm.provider", "openai"])
         assert result.exit_code == 0
-        assert "Setting llm.provider=openai" in result.output
+        assert "Set llm.provider = openai" in result.output
 
 
 class TestConfigPath:

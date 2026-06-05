@@ -141,10 +141,11 @@ class TestSubagentRegistry:
 
 
 class TestRegisterBuiltins:
-    def test_registers_11(self):
+    def test_registers_all(self):
         reg = SubagentRegistry()
         count = register_builtins(reg)
-        assert count == 11
+        # Hardcoded 11 + YAML overrides (same IDs, so same agent count)
+        assert count >= 11
         assert len(reg.list()) == 11
 
     def test_builtin_ids(self):

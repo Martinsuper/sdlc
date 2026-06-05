@@ -1,5 +1,6 @@
 """config_cmd — Configuration management CLI commands."""
 
+import contextlib
 import os
 
 import click
@@ -50,9 +51,47 @@ def config_get(key):
 @click.argument("key")
 @click.argument("value")
 def config_set(key, value):
-    """Set a configuration value."""
-    click.echo(f"Setting {key}={value}")
-    click.echo("Note: Configuration persistence will be available in M2.")
+    """Set a configuration value and persist it."""
+    from sdlc.utils.paths import sdlc_home
+    from sdlc.utils.yaml_io import load_yaml, save_yaml
+
+    home = sdlc_home()
+    home.mkdir(exist_ok=True)
+    config_path = home / "config.yaml"
+
+    # Load existing config
+    if config_path.exists():
+        cfg = load_yaml(config_path) or {}
+        if not isinstance(cfg, dict):
+            cfg = {}
+    else:
+        cfg = {}
+
+    # Set nested key (e.g., "llm.primary_model")
+    keys = key.split(".")
+    current = cfg
+    for k in keys[:-1]:
+        if k not in current or not isinstance(current[k], dict):
+            current[k] = {}
+        current = current[k]
+
+    # Try to parse value as int/float/bool
+    parsed_value: object = value
+    if value.lower() in ("true", "false"):
+        parsed_value = value.lower() == "true"
+    else:
+        with contextlib.suppress(ValueError):
+            parsed_value = int(value)
+        if isinstance(parsed_value, str):
+            with contextlib.suppress(ValueError):
+                parsed_value = float(value)
+
+    current[keys[-1]] = parsed_value
+
+    # Save
+    save_yaml(config_path, cfg)
+    click.echo(f"Set {key} = {parsed_value}")
+    click.echo(f"Saved to {config_path}")
 
 
 @config.command("path")
@@ -93,3 +132,20 @@ def config_test_llm():
     except Exception as e:
         click.echo(f"  OpenAI: Failed — {e}")
     click.echo("Note: API key validation requires actual API calls (M2).")
+
+
+@config.command("reset")
+@click.option("--confirm", is_flag=True, help="Confirm reset")
+def config_reset(confirm):
+    """Reset configuration to defaults."""
+    if not confirm:
+        click.echo("This will delete your user configuration. Use --confirm to proceed.")
+        return
+    from sdlc.utils.paths import sdlc_home
+
+    config_path = sdlc_home() / "config.yaml"
+    if config_path.exists():
+        config_path.unlink()
+        click.echo("Configuration reset to defaults")
+    else:
+        click.echo("No user configuration found")

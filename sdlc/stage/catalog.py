@@ -19,6 +19,7 @@ def _builtin_stages_dir() -> Path:
 class StageCatalog:
     def __init__(self) -> None:
         self._stages: dict[str, StageDef] = {}
+        self.load_builtin()
 
     def register(self, stage_def: StageDef) -> None:
         self._stages[stage_def.id] = stage_def

@@ -112,4 +112,6 @@ def register_builtins(registry: SubagentRegistry) -> int:
         agent = Subagent(**item)
         registry.register(agent)
         count += 1
+    # Load from YAML files, overriding hardcoded definitions
+    count += registry.load_builtin()
     return count

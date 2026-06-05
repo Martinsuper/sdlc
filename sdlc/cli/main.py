@@ -7,8 +7,15 @@ from sdlc import __version__
 
 @click.group()
 @click.version_option(version=__version__, prog_name="sdlc")
-def cli() -> None:
+@click.option("--debug-timing", is_flag=True, hidden=True)
+@click.pass_context
+def cli(ctx: click.Context, debug_timing: bool) -> None:
     """sdlc — AI-driven full-lifecycle SDLC orchestration CLI tool."""
+    ctx.ensure_object(dict)
+    if debug_timing:
+        import time
+
+        ctx.obj["_start_time"] = time.monotonic()
 
 
 # --- Core flow commands (5) ---

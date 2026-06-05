@@ -99,9 +99,9 @@ class TestStageCatalog:
         cat.register(sd1)
         cat.register(sd2)
         result = cat.list_stages()
-        assert len(result) == 2
         ids = {s.id for s in result}
-        assert ids == {"s1", "s2"}
+        assert "s1" in ids
+        assert "s2" in ids
 
     def test_has(self):
         cat = StageCatalog()
@@ -116,8 +116,9 @@ class TestStageCatalog:
         cat.register(_make_stage_def(id="s2", name="S2", category="impl"))
         cat.register(_make_stage_def(id="s3", name="S3", category="requirement"))
         result = cat.for_category("requirement")
-        assert len(result) == 2
         assert all(s.category == "requirement" for s in result)
+        assert "s1" in {s.id for s in result}
+        assert "s3" in {s.id for s in result}
 
     def test_load_from_yaml(self, tmp_path):
         yaml_content = (

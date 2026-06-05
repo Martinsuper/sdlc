@@ -59,10 +59,12 @@ def test_registry_has():
 def test_register_builtins():
     reg = ProfileRegistry()
     count = register_builtins(reg)
-    assert count == 14
+    # Hardcoded 14 + YAML overrides (same IDs, so same profile count)
+    assert count >= 14
     assert reg.has("new-feature")
     assert reg.has("bug-fix")
     assert reg.has("hotfix")
+    assert len(reg.list_profiles()) == 14
 
 
 def test_resolve_feature():

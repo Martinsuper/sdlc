@@ -63,6 +63,14 @@ class GateEngine:
             )
 
         if self._check_block(gate_def, context):
+            # Check for rule exceptions before blocking
+            rule_id = context.get("rule_id", "")
+            if rule_id and self._has_active_exception(rule_id, context):
+                return GateDecision(
+                    gate_id=gate_def.id,
+                    action=GateAction.AUTO_PASS,
+                    reason=f"Rule {rule_id} has active exception",
+                )
             return GateDecision(
                 gate_id=gate_def.id,
                 action=GateAction.BLOCK,
@@ -82,6 +90,21 @@ class GateEngine:
             reviewer=gate_def.reviewer,
             deadline=deadline,
         )
+
+    def _has_active_exception(self, rule_id: str, context: dict[str, Any]) -> bool:
+        """Check if a rule has an active exception in the ExceptionManager."""
+        try:
+            from sdlc.rule.exceptions import ExceptionManager
+            from sdlc.utils.paths import project_root
+
+            kb_root = project_root() / "doc" / "kb"
+            if not kb_root.exists():
+                return False
+            exc_mgr = ExceptionManager(kb_root)
+            result = exc_mgr.is_active(rule_id, context)
+            return result is not None
+        except Exception:
+            return False
 
     def _check_auto_pass(self, gate_def: GateDef, context: dict[str, Any]) -> bool:
         conditions = gate_def.auto_pass_conditions

@@ -65,6 +65,36 @@ class ProfileRegistry:
                 count += 1
         return count
 
+    def load_builtin_yaml(self) -> int:
+        """Load profiles from builtin/profiles/*.yaml."""
+        import importlib.util
+
+        spec = importlib.util.find_spec("sdlc.builtin.profiles")
+        if not spec or not spec.submodule_search_locations:
+            return 0
+        builtin_dir = Path(spec.submodule_search_locations[0])
+        count = 0
+        for f in sorted(builtin_dir.glob("*.yaml")):
+            try:
+                data = load_yaml(f)
+                if data and isinstance(data, dict) and "id" in data:
+                    profile = ProfileDef(
+                        id=data["id"],
+                        name=str(data.get("name", data["id"])),
+                        entry_kinds=data.get("entry_kinds", []),
+                        base_stages=data.get("base_stages", []),
+                        skip_stages=data.get("skip_stages", []),
+                        extra_stages=data.get("extra_stages", []),
+                        gates=data.get("gates", []),
+                        subagent_overrides=data.get("subagent_overrides", {}),
+                        severity=data.get("severity", "P2"),
+                    )
+                    self.register(profile)
+                    count += 1
+            except Exception:
+                pass
+        return count
+
 
 def register_builtins(registry: ProfileRegistry) -> int:
     count = 0
@@ -72,4 +102,6 @@ def register_builtins(registry: ProfileRegistry) -> int:
         profile = ProfileDef(**item)
         registry.register(profile)
         count += 1
+    # Load from YAML files, overriding hardcoded definitions
+    count += registry.load_builtin_yaml()
     return count
