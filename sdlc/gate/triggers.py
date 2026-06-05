@@ -1,4 +1,5 @@
 from typing import Any
+
 from sdlc.gate.models import GateDef, GateTrigger
 
 

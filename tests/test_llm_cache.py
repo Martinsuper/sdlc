@@ -40,7 +40,7 @@ def cache(tmp_path: Path) -> LLMCache:
 
 
 def run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 def test_init_creates_db_and_table(cache: LLMCache, tmp_path: Path):
