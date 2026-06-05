@@ -1,0 +1,11 @@
+id: G7-test-coverage
+name: Test Coverage Gate
+trigger: always
+after_stages: [s-test]
+reviewer_role: QA
+deadline_hours: 8
+severity_required: [P0, P1]
+actions:
+  - check: test_coverage
+auto_fail_if:
+  coverage_below_threshold: true

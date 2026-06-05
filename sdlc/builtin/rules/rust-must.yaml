@@ -33,3 +33,243 @@
   severity: P2
   applies_to: ["**/*.rs"]
   references: []
+
+- id: no-expect-in-prod
+  level: MUST
+  category: error-handling
+  description: "禁止在生产代码中使用 expect()"
+  enforcer: cr
+  pattern: "\\.expect\\s*\\("
+  message: "expect() 在失败时会 panic，请使用 ? 或 match 进行错误传播"
+  action: block
+  severity: P1
+  applies_to: ["**/*.rs"]
+  references: []
+
+- id: no-panic-in-lib
+  level: MUST
+  category: error-handling
+  description: "禁止在库代码中使用 panic!"
+  enforcer: cr
+  pattern: "panic!\\s*\\("
+  message: "库代码中不应 panic，请返回 Result"
+  action: block
+  severity: P1
+  applies_to: ["**/*.rs"]
+  references: []
+
+- id: no-unreachable-pattern
+  level: SHOULD
+  category: quality
+  description: "禁止不可达的 match 分支"
+  enforcer: cr
+  pattern: "_\\s*=>"
+  message: "检查 match 中是否存在不可达的模式分支"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.rs"]
+  references: []
+
+- id: no-cast-possible-truncation
+  level: SHOULD
+  category: safety
+  description: "类型转换可能导致截断"
+  enforcer: cr
+  pattern: "\\bas\\s+(u8|i8|u16|i16|u32|i32)"
+  message: "大类型转小类型可能截断数据，请确认转换安全"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.rs"]
+  references: []
+
+- id: no-clone-on-copy
+  level: SHOULD
+  category: performance
+  description: "Copy 类型不需要 clone()"
+  enforcer: cr
+  pattern: "\\b(u8|u16|u32|u64|i8|i16|i32|i64|f32|f64|bool|char)\\.clone\\(\\)"
+  message: "Copy 类型不需要 clone()，直接复制即可"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.rs"]
+  references: []
+
+- id: no-unsafe-impl
+  level: MUST
+  category: safety
+  description: "禁止 unsafe impl"
+  enforcer: cr
+  pattern: "unsafe\\s+impl"
+  message: "unsafe impl 需要手动保证安全性，请确认必要性"
+  action: block
+  severity: P0
+  applies_to: ["**/*.rs"]
+  references: []
+
+- id: no-mutex-arc-unnecessary
+  level: SHOULD
+  category: design
+  description: "单线程场景不需要 Mutex"
+  enforcer: cr
+  pattern: "Arc\\s*<\\s*Mutex"
+  message: "如果不需要跨线程共享，请使用 Rc<RefCell> 代替 Arc<Mutex>"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.rs"]
+  references: []
+
+- id: no-hardcoded-secret
+  level: MUST
+  category: security
+  description: "禁止硬编码密钥和密码"
+  enforcer: cr
+  pattern: "(password|secret|api_key|apikey|token)\\s*=\\s*\"[^\"]+\""
+  message: "禁止硬编码密钥，请使用环境变量或配置"
+  action: block
+  severity: P0
+  applies_to: ["**/*.rs"]
+  references: []
+
+- id: no-unsafe-transmute
+  level: MUST
+  category: safety
+  description: "禁止使用 std::mem::transmute"
+  enforcer: cr
+  pattern: "std::mem::transmute|mem::transmute"
+  message: "transmute 极不安全，请使用安全转换方式"
+  action: block
+  severity: P0
+  applies_to: ["**/*.rs"]
+  references: []
+
+- id: no-fs-without-error-handling
+  level: MUST
+  category: error-handling
+  description: "文件操作必须处理错误"
+  enforcer: cr
+  pattern: "std::fs::(read|write|create|remove|rename|copy)\\s*\\("
+  message: "文件操作可能失败，必须处理错误"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.rs"]
+  references: []
+
+- id: no-unwrap-or-default-panic
+  level: SHOULD
+  category: error-handling
+  description: "避免使用 unwrap_or_default 掩盖错误"
+  enforcer: cr
+  pattern: "\\.unwrap_or_default\\s*\\("
+  message: "unwrap_or_default 可能掩盖错误，请显式处理"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.rs"]
+  references: []
+
+- id: no-regex-unsafe
+  level: SHOULD
+  category: security
+  description: "正则表达式可能存在 ReDoS 风险"
+  enforcer: cr
+  pattern: "Regex::new\\s*\\("
+  message: "请验证正则表达式不会导致回溯爆炸"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.rs"]
+  references: []
+
+- id: no-unsafe-from-raw
+  level: MUST
+  category: safety
+  description: "禁止使用 from_raw_parts"
+  enforcer: cr
+  pattern: "from_raw_parts\\s*\\(|from_raw\\s*\\("
+  message: "from_raw 操作需要手动保证安全性，请确认必要性"
+  action: block
+  severity: P0
+  applies_to: ["**/*.rs"]
+  references: []
+
+- id: no-missing-error-propagation
+  level: MUST
+  category: error-handling
+  description: "必须传播错误而非忽略"
+  enforcer: cr
+  pattern: "(?<!\\.ok\\(\\))Result"
+  message: "必须传播 Result 错误，使用 ? 操作符"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.rs"]
+  references: []
+
+- id: no-unwrap-on-option
+  level: MUST
+  category: error-handling
+  description: "Option 类型禁止直接 unwrap"
+  enforcer: cr
+  pattern: "\\.unwrap\\(\\)"
+  message: "Option.unwrap() 可能 panic，请使用 match、if let 或 ok_or"
+  action: block
+  severity: P1
+  applies_to: ["**/*.rs"]
+  references: []
+
+- id: no-allow-dead-code
+  level: SHOULD
+  category: quality
+  description: "禁止使用 #[allow(dead_code)]"
+  enforcer: cr
+  pattern: "#\\[allow\\(dead_code\\)\\]"
+  message: "请移除死代码而非禁止警告"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.rs"]
+  references: []
+
+- id: no-allow-unused-imports
+  level: SHOULD
+  category: quality
+  description: "禁止使用 #[allow(unused_imports)]"
+  enforcer: cr
+  pattern: "#\\[allow\\(unused_imports\\)\\]"
+  message: "请移除未使用的导入而非禁止警告"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.rs"]
+  references: []
+
+- id: no-expect-used
+  level: MUST
+  category: error-handling
+  description: "生产代码中禁止使用 expect"
+  enforcer: cr
+  pattern: "\\.expect\\s*\\(\\s*\""
+  message: "expect 可能导致 panic，请使用 ? 操作符传播错误"
+  action: block
+  severity: P1
+  applies_to: ["**/*.rs"]
+  references: []
+
+- id: no-panic-used
+  level: MUST
+  category: error-handling
+  description: "禁止使用 panic! 宏"
+  enforcer: cr
+  pattern: "panic!\\s*\\("
+  message: "panic! 会导致程序崩溃，请返回 Result 类型"
+  action: block
+  severity: P1
+  applies_to: ["**/*.rs"]
+  references: []
+
+- id: no-match-wild-err
+  level: SHOULD
+  category: error-handling
+  description: "match 中不应忽略错误变体"
+  enforcer: cr
+  pattern: "Err\\(_\\)\\s*=>"
+  message: "match 中不应忽略错误，请至少记录日志"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.rs"]
+  references: []

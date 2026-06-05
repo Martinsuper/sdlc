@@ -35,4 +35,16 @@ def should_trigger(gate_def: GateDef, context: dict[str, Any]) -> bool:
         stage_id: str = context.get("stage_id", "")
         return stage_id == gate_def.after_stage
 
+    if trigger == GateTrigger.ON_RELEASE:
+        return context.get("is_release", False) is True
+
+    if trigger == GateTrigger.ON_COMPLIANCE_REQUIRED:
+        return context.get("compliance_required", False) is True
+
+    if trigger == GateTrigger.ON_PROFILE:
+        profile: str = context.get("profile", "")
+        if not profile:
+            return False
+        return profile in gate_def.profiles
+
     return False

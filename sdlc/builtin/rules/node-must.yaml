@@ -33,3 +33,267 @@
   severity: P1
   applies_to: ["**/*.js", "**/*.ts"]
   references: []
+
+- id: no-eval
+  level: MUST
+  category: security
+  description: "禁止使用 eval() 和 new Function()"
+  enforcer: cr
+  pattern: "(\\beval\\s*\\(|new\\s+Function\\s*\\()"
+  message: "eval 和 new Function 存在代码注入风险"
+  action: block
+  severity: P0
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-new-require
+  level: MUST
+  category: coding
+  description: "禁止使用 new require() 模式"
+  enforcer: cr
+  pattern: "new\\s+require\\s*\\("
+  message: "new require() 会导致代码难以分析，请分开写"
+  action: block
+  severity: P1
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-callback-hell
+  level: SHOULD
+  category: design
+  description: "避免深层嵌套回调"
+  enforcer: cr
+  pattern: "function\\s*\\([^)]*\\)\\s*\\{[^}]*function\\s*\\([^)]*\\)\\s*\\{[^}]*function\\s*\\([^)]*\\)"
+  message: "深层嵌套回调难以维护，请使用 async/await 或 Promise"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-throw-literal
+  level: MUST
+  category: error-handling
+  description: "throw 必须抛出 Error 对象而非字面量"
+  enforcer: cr
+  pattern: "throw\\s+[\"'{\\d]"
+  message: "throw 必须抛出 Error 对象，不能抛出字符串或数字"
+  action: block
+  severity: P1
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-unsafe-regexp
+  level: SHOULD
+  category: security
+  description: "避免使用可能导致 ReDoS 的复杂正则表达式"
+  enforcer: cr
+  pattern: "(\\(.*\\+.*\\).*\\+|\\(.*\\|.*\\).*\\+|\\[.*\\].*\\{.*\\,)"
+  message: "该正则表达式可能导致回溯爆炸 (ReDoS)，请简化"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-prototype-pollution
+  level: MUST
+  category: security
+  description: "禁止直接修改 Object.prototype 或 __proto__"
+  enforcer: cr
+  pattern: "(Object\\.prototype\\.\\w+\\s*=|__proto__\\s*=|\\.constructor\\.prototype\\s*=)"
+  message: "修改原型链会导致原型污染攻击"
+  action: block
+  severity: P0
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-express-stack-trace
+  level: MUST
+  category: security
+  description: "生产环境禁止暴露 Express 错误堆栈"
+  enforcer: cr
+  pattern: "app\\.use\\(.*err\\s*,.*res\\.send.*err\\.stack"
+  message: "生产环境不应暴露错误堆栈信息"
+  action: block
+  severity: P0
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-cors-wildcard
+  level: MUST
+  category: security
+  description: "禁止使用 CORS 通配符配置"
+  enforcer: cr
+  pattern: "cors\\s*\\(\\s*\\{.*origin\\s*:\\s*\\*"
+  message: "CORS 通配符允许任何来源访问，请指定具体域名"
+  action: block
+  severity: P0
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-helmet-missing
+  level: SHOULD
+  category: security
+  description: "Express 应用应使用 helmet 安全中间件"
+  enforcer: cr
+  pattern: "app\\.listen\\((?!.*helmet)"
+  message: "建议使用 helmet 中间件增强 Express 安全性"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-body-parser-limit
+  level: MUST
+  category: security
+  description: "body-parser 必须设置请求体大小限制"
+  enforcer: cr
+  pattern: "bodyParser\\s*\\(\\s*\\)|express\\.json\\s*\\(\\s*\\)|express\\.urlencoded\\s*\\(\\s*\\)"
+  message: "请设置请求体大小限制以防止 DoS 攻击"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-sql-injection-orm
+  level: MUST
+  category: security
+  description: "禁止在 ORM 查询中使用原始 SQL 拼接"
+  enforcer: cr
+  pattern: "\\.(raw|query)\\s*\\(.*\\+|\\.(raw|query)\\s*\\(.*\\$\\{"
+  message: "ORM 原始查询中的字符串拼接可能导致 SQL 注入"
+  action: block
+  severity: P0
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-hardcoded-jwt-secret
+  level: MUST
+  category: security
+  description: "禁止硬编码 JWT 密钥"
+  enforcer: cr
+  pattern: "jwt\\.(sign|verify)\\s*\\(.*[\"'][^\"']{8,}[\"']\\s*\\)"
+  message: "JWT 密钥必须从环境变量获取，不能硬编码"
+  action: block
+  severity: P0
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-unsafe-deserialization
+  level: MUST
+  category: security
+  description: "禁止使用不安全的反序列化方法"
+  enforcer: cr
+  pattern: "(serialize\\s*\\(|deserialize\\s*\\(|node-serialize)"
+  message: "不安全的反序列化可能导致远程代码执行"
+  action: block
+  severity: P0
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-plain-http-request
+  level: MUST
+  category: security
+  description: "禁止使用明文 HTTP 请求传输敏感数据"
+  enforcer: cr
+  pattern: "(axios|fetch|http\\.get|http\\.request)\\s*\\(.*http://(?!localhost|127\\.0\\.0\\.1)"
+  message: "请使用 HTTPS 协议传输数据"
+  action: block
+  severity: P0
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-console-in-prod
+  level: SHOULD
+  category: quality
+  description: "生产代码中禁止使用 console 调试方法"
+  enforcer: cr
+  pattern: "console\\.(debug|info|warn|error|trace)\\("
+  message: "请移除调试用的 console 语句或使用日志框架"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-unused-vars
+  level: SHOULD
+  category: quality
+  description: "禁止声明未使用的变量"
+  enforcer: cr
+  pattern: "(const|let|var)\\s+\\w+\\s*="
+  message: "检测到未使用的变量声明"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-var-keyword
+  level: MUST
+  category: coding
+  description: "禁止使用 var 声明变量"
+  enforcer: cr
+  pattern: "\\bvar\\s+\\w+"
+  message: "请使用 const 或 let 代替 var"
+  action: block
+  severity: P1
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-nested-callbacks
+  level: SHOULD
+  category: design
+  description: "避免回调嵌套超过3层"
+  enforcer: cr
+  pattern: "function\\s*\\([^)]*err[^)]*\\)\\s*\\{[^}]*function\\s*\\([^)]*err[^)]*\\)\\s*\\{"
+  message: "回调嵌套过深，请使用 async/await 重构"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-child-process-shell
+  level: MUST
+  category: security
+  description: "禁止使用 shell 模式的 child_process"
+  enforcer: cr
+  pattern: "child_process\\.(exec|execSync|spawn)\\s*\\(.*shell\\s*:\\s*true"
+  message: "shell 模式存在命令注入风险，请使用数组参数"
+  action: block
+  severity: P0
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-fs-sync
+  level: MUST
+  category: performance
+  description: "禁止使用同步 fs 方法阻塞事件循环"
+  enforcer: cr
+  pattern: "fs\\.(readFileSync|writeFileSync|readdirSync|statSync|existsSync|mkdirSync|rmdirSync|unlinkSync|accessSync|chmodSync|chownSync|copyFileSync|linkSync|openSync|readlinkSync|realpathSync|renameSync|truncateSync|utimesSync|watchFile|writeFileSync|appendFileSync)"
+  message: "同步 fs 方法会阻塞事件循环，请使用异步版本"
+  action: block
+  severity: P1
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-require-absolute
+  level: SHOULD
+  category: coding
+  description: "避免使用绝对路径 require"
+  enforcer: cr
+  pattern: "require\\s*\\(\\s*[\"']/"
+  message: "请使用相对路径或模块名进行 require"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-dns-lookup-unsafe
+  level: SHOULD
+  category: security
+  description: "DNS 查询结果可能被伪造，不要直接信任"
+  enforcer: cr
+  pattern: "dns\\.(lookup|resolve|reverse)\\s*\\("
+  message: "DNS 查询结果可能被篡改，请验证结果或使用安全 DNS"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.js", "**/*.ts"]
+  references: []

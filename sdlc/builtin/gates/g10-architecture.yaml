@@ -1,0 +1,12 @@
+id: G10-architecture
+name: Architecture Gate
+trigger: on_profile
+after_stages: [s-design]
+reviewer_role: Architect
+deadline_hours: 4
+severity_required: [P0, P1]
+profiles: [new-feature, hotfix]
+actions:
+  - check: architecture_compliance
+auto_fail_if:
+  on_architecture_violation: true

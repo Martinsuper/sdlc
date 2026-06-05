@@ -122,7 +122,26 @@ class GateEngine:
             violations = context.get("rule_violations", [])
             if any(v.get("level") == "MUST" for v in violations):
                 return True
-        return bool(conditions.get("on_failure") and context.get("stage_status") == "FAILED")
+        if conditions.get("on_failure") and context.get("stage_status") == "FAILED":
+            return True
+        if conditions.get("coverage_below_threshold"):
+            coverage = context.get("test_coverage", 100)
+            threshold = context.get("coverage_threshold", 80)
+            if coverage < threshold:
+                return True
+        if conditions.get("on_p0_violation"):
+            violations = context.get("rule_violations", [])
+            if any(v.get("severity") == "P0" for v in violations):
+                return True
+        if conditions.get("on_compliance_violation"):
+            violations = context.get("compliance_violations", [])
+            if violations:
+                return True
+        if conditions.get("on_architecture_violation"):
+            violations = context.get("architecture_violations", [])
+            if violations:
+                return True
+        return False
 
     def _block_reason(self, gate_def: GateDef, context: dict[str, Any]) -> str:
         conditions = gate_def.block_conditions
@@ -133,4 +152,19 @@ class GateEngine:
                 return f"Blocked by MUST rule violations: {[v.get('id') for v in must_violations]}"
         if conditions.get("on_failure"):
             return "Blocked due to stage failure"
+        if conditions.get("coverage_below_threshold"):
+            coverage = context.get("test_coverage", 100)
+            threshold = context.get("coverage_threshold", 80)
+            return f"Blocked: test coverage {coverage}% below threshold {threshold}%"
+        if conditions.get("on_p0_violation"):
+            violations = context.get("rule_violations", [])
+            p0_violations = [v for v in violations if v.get("severity") == "P0"]
+            if p0_violations:
+                return f"Blocked by P0 violations: {[v.get('id') for v in p0_violations]}"
+        if conditions.get("on_compliance_violation"):
+            violations = context.get("compliance_violations", [])
+            return f"Blocked by compliance violations: {violations}"
+        if conditions.get("on_architecture_violation"):
+            violations = context.get("architecture_violations", [])
+            return f"Blocked by architecture violations: {violations}"
         return f"Blocked by gate {gate_def.id}"

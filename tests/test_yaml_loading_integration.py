@@ -528,7 +528,7 @@ class TestGateCatalog:
             "name": "Auto Fail Gate",
             "trigger": "always",
             "after_stages": ["s-clarify"],
-            "auto_fail_if": "secrets_in_code: high>0",
+            "auto_fail_if": {"secrets_in_code": True, "on_must_violation": True},
         }
         p = tmp_path / "g4.yaml"
         save_yaml(p, data)
@@ -536,7 +536,7 @@ class TestGateCatalog:
         count = catalog.load_from_yaml(p)
         assert count == 1
         gate = catalog.get("G4-auto-fail")
-        assert "auto_fail_if" in gate.block_conditions
+        assert "on_must_violation" in gate.block_conditions
 
     def test_get_not_found(self) -> None:
         catalog = GateCatalog()
@@ -555,7 +555,7 @@ class TestGateCatalog:
     def test_load_builtin(self) -> None:
         catalog = GateCatalog()
         count = catalog.load_builtin()
-        assert count == 5  # 5 YAML files in builtin/gates/
+        assert count >= 5  # 5+ YAML files in builtin/gates/
         assert catalog.list_gates()
         # Verify some known gates
         gate_ids = {g.id for g in catalog.list_gates()}

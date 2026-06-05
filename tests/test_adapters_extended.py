@@ -576,23 +576,23 @@ class TestBuiltinRuleYamls:
         for entry in data:
             assert entry["severity"] in valid_severities
 
-    def test_coding_must_has_3_rules(self):
+    def test_coding_must_has_rules(self):
         from sdlc.utils.yaml_io import load_yaml
 
         path = Path(__file__).parent.parent / "sdlc" / "builtin" / "rules" / "coding-must.yaml"
         data = load_yaml(path)
-        assert len(data) == 3
+        assert len(data) >= 3
         rule_ids = [r["id"] for r in data]
         assert "no-thread-sleep" in rule_ids
         assert "no-system-out" in rule_ids
         assert "no-hardcoded-secrets" in rule_ids
 
-    def test_python_must_has_3_rules(self):
+    def test_python_must_has_rules(self):
         from sdlc.utils.yaml_io import load_yaml
 
         path = Path(__file__).parent.parent / "sdlc" / "builtin" / "rules" / "python-must.yaml"
         data = load_yaml(path)
-        assert len(data) == 3
+        assert len(data) >= 3
         rule_ids = [r["id"] for r in data]
         assert "no-bare-except" in rule_ids
         assert "no-eval" in rule_ids

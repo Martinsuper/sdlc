@@ -33,3 +33,267 @@
   severity: P0
   applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
   references: []
+
+- id: no-hardcoded-api-key
+  level: MUST
+  category: security
+  description: "禁止硬编码 API 密钥"
+  enforcer: cr
+  pattern: "(api_?key|API_?KEY|apiKey|ApiKey)\\s*=\\s*[\"'][^\"']+[\"']"
+  message: "API 密钥必须通过安全存储获取，禁止硬编码"
+  action: block
+  severity: P0
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: no-insecure-storage
+  level: MUST
+  category: security
+  description: "禁止使用不安全的存储方式保存敏感数据"
+  enforcer: cr
+  pattern: "(SharedPreferences|NSUserDefaults|localStorage)\\.\\w+\\(.*(password|token|secret|credit)"
+  message: "敏感数据必须使用安全存储（Keychain/Keystore），不能用普通存储"
+  action: block
+  severity: P0
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: no-logging-sensitive
+  level: MUST
+  category: security
+  description: "禁止记录用户敏感信息"
+  enforcer: cr
+  pattern: "(Log\\.|NSLog|print|debugPrint|println)\\(.*(ssn|social_security|credit_card|cvv)"
+  message: "禁止记录 SSN、信用卡号等高度敏感信息"
+  action: block
+  severity: P0
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: no-http-connection
+  level: MUST
+  category: security
+  description: "禁止使用 HTTP 明文连接"
+  enforcer: cr
+  pattern: "http://(?!localhost|127\\.0\\.0\\.1)"
+  message: "必须使用 HTTPS 加密连接"
+  action: block
+  severity: P0
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: no-disable-ssl
+  level: MUST
+  category: security
+  description: "禁止禁用 SSL 证书验证"
+  enforcer: cr
+  pattern: "(setHostnameVerifier\\s*\\(\\s*ALLOW_ALL|TrustAll|X509TrustManager|allowsAnySSLCertificate)"
+  message: "禁止禁用 SSL 证书验证，这会导致中间人攻击"
+  action: block
+  severity: P0
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: no-webview-js-universal
+  level: MUST
+  category: security
+  description: "WebView 不应启用通用 JS 接口"
+  enforcer: cr
+  pattern: "addJavascriptInterface\\s*\\(|evaluateJavascript\\s*\\("
+  message: "WebView JS 接口可能被恶意利用，请限制暴露范围"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: no-root-detection-bypass
+  level: MUST
+  category: security
+  description: "禁止绕过 Root/越狱检测"
+  enforcer: cr
+  pattern: "(isJailbroken\\s*==\\s*false|isRooted\\s*==\\s*false|RootDetection\\.bypass)"
+  message: "Root/越狱检测不应被绕过"
+  action: block
+  severity: P0
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: no-screenshot-allowed
+  level: SHOULD
+  category: security
+  description: "敏感界面应阻止截屏"
+  enforcer: cr
+  pattern: "FLAG_SECURE|secureTextEntry\\s*=\\s*false"
+  message: "包含敏感信息的界面应启用截屏保护"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: no-clipboard-sensitive
+  level: MUST
+  category: security
+  description: "禁止将敏感信息复制到剪贴板"
+  enforcer: cr
+  pattern: "(ClipboardManager|UIPasteboard|Clipboard)\\.\\w+\\(.*(password|token|secret)"
+  message: "禁止将密码等敏感信息复制到剪贴板"
+  action: block
+  severity: P0
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: no-debug-flag-prod
+  level: MUST
+  category: security
+  description: "生产构建必须关闭调试标志"
+  enforcer: cr
+  pattern: "(BuildConfig\\.DEBUG|DEBUG\\s*=\\s*true|isDebug\\s*=\\s*true|#if DEBUG)"
+  message: "生产构建中调试标志必须为 false"
+  action: block
+  severity: P0
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: no-allow-backup
+  level: MUST
+  category: security
+  description: "Android 应用应禁止自动备份"
+  enforcer: cr
+  pattern: "android:allowBackup\\s*=\\s*\"true\""
+  message: "allowBackup=true 会将应用数据备份到 Google，存在泄露风险"
+  action: block
+  severity: P0
+  applies_to: ["**/*.xml"]
+  references: []
+
+- id: no-exported-activity
+  level: MUST
+  category: security
+  description: "Activity/Service 不应无条件导出"
+  enforcer: cr
+  pattern: "android:exported\\s*=\\s*\"true\""
+  message: "导出的 Activity/Service 可能被恶意应用调用，请添加权限保护"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.xml"]
+  references: []
+
+- id: no-unsafe-intent
+  level: MUST
+  category: security
+  description: "Intent 必须验证来源和内容"
+  enforcer: cr
+  pattern: "getIntent\\(\\)\\.get.*Extra|Intent\\s*\\(.*\\.parseUri"
+  message: "Intent 数据必须验证，防止恶意注入"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.kt", "**/*.java"]
+  references: []
+
+- id: no-keyboard-cache
+  level: SHOULD
+  category: security
+  description: "敏感输入框应禁用键盘缓存"
+  enforcer: cr
+  pattern: "android:inputType\\s*=\\s*\"textPassword\"|autocorrectionType\\s*=\\s*default"
+  message: "密码输入框应确保键盘不会缓存输入内容"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: no-cache-sensitive
+  level: SHOULD
+  category: security
+  description: "敏感数据不应被缓存"
+  enforcer: cr
+  pattern: "cachePolicy\\s*=\\s*\\.useProtocolCachePolicy|URLCache\\.shared"
+  message: "包含敏感信息的请求应禁用缓存"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: no-third-party-keyboard
+  level: SHOULD
+  category: security
+  description: "敏感输入场景应限制第三方键盘"
+  enforcer: cr
+  pattern: "shouldAllowExtensionPointIdentifier"
+  message: "第三方键盘可能记录输入内容，敏感场景应限制"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: no-biometric-bypass
+  level: MUST
+  category: security
+  description: "生物认证不应有旁路绕过"
+  enforcer: cr
+  pattern: "(BiometricPrompt|LAContext).*fallback.*=.*true|canEvaluatePolicy.*false"
+  message: "生物认证应有安全的回退方案，不能简单绕过"
+  action: block
+  severity: P0
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: no-insecure-random
+  level: MUST
+  category: security
+  description: "安全场景禁止使用不安全的随机数"
+  enforcer: cr
+  pattern: "(Math\\.random|java\\.util\\.Random|arc4random|Random\\(\\))"
+  message: "安全相关场景请使用 SecRandomCopyBytes/SecureRandom"
+  action: block
+  severity: P0
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart"]
+  references: []
+
+- id: no-tapjacking
+  level: MUST
+  category: security
+  description: "应用应防止 Tapjacking 攻击"
+  enforcer: cr
+  pattern: "android:filterTouchesWhenObscured\\s*=\\s*\"false\""
+  message: "应设置 filterTouchesWhenObscured=true 防止 Tapjacking"
+  action: block
+  severity: P0
+  applies_to: ["**/*.xml"]
+  references: []
+
+- id: no-task-hijack
+  level: SHOULD
+  category: security
+  description: "Activity 应防止 Task Hijacking"
+  enforcer: cr
+  pattern: "android:taskAffinity\\s*=\\s*\"\"|android:launchMode\\s*=\\s*\"singleTask\""
+  message: "检查 Activity 的 taskAffinity 和 launchMode 设置，防止任务劫持"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.xml"]
+  references: []
+
+- id: no-unsafe-deeplink
+  level: MUST
+  category: security
+  description: "Deep Link 必须验证来源"
+  enforcer: cr
+  pattern: "android:scheme\\s*=\\s*\"http|deep_link|AppLinkData"
+  message: "Deep Link 必须验证来源和数据，防止恶意调用"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.kt", "**/*.java", "**/*.swift", "**/*.dart", "**/*.xml"]
+  references: []
+
+- id: no-plist-exposed
+  level: MUST
+  category: security
+  description: "Info.plist 不应暴露敏感配置"
+  enforcer: cr
+  pattern: "(NSAppTransportSecurity|NSAllowsArbitraryLoads)\\s*=\\s*true"
+  message: "Info.plist 中不应禁用 ATS 或暴露敏感配置"
+  action: block
+  severity: P0
+  applies_to: ["**/*.plist"]
+  references: []

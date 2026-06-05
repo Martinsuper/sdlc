@@ -39,11 +39,14 @@ class GateCatalog:
             auto_pass_conditions["actions"] = actions
 
         auto_fail_if = data.get("auto_fail_if")
-        if auto_fail_if:
-            block_conditions["auto_fail_if"] = auto_fail_if
+        if auto_fail_if and isinstance(auto_fail_if, dict):
+            block_conditions.update(auto_fail_if)
 
         # Parse severity_required into severities
         severities = data.get("severity_required", [])
+
+        # Parse profiles
+        profiles = data.get("profiles", [])
 
         gate = GateDef(
             id=gate_id,
@@ -53,6 +56,7 @@ class GateCatalog:
             reviewer=data.get("reviewer_role", ""),
             deadline_hours=data.get("deadline_hours", 24),
             severities=severities if isinstance(severities, list) else [],
+            profiles=profiles if isinstance(profiles, list) else [],
             auto_pass_conditions=auto_pass_conditions,
             block_conditions=block_conditions,
         )

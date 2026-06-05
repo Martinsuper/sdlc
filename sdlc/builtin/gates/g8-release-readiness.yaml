@@ -1,0 +1,11 @@
+id: G8-release-readiness
+name: Release Readiness Gate
+trigger: on_release
+after_stages: [s-deploy]
+reviewer_role: ReleaseManager
+deadline_hours: 4
+severity_required: [P0]
+actions:
+  - check: release_readiness
+auto_fail_if:
+  on_p0_violation: true

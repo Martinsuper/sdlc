@@ -33,3 +33,267 @@
   severity: P0
   applies_to: ["**/*.java", "**/*.py", "**/*.js", "**/*.ts", "**/*.go"]
   references: []
+
+- id: no-todo-in-prod
+  level: SHOULD
+  category: quality
+  description: "生产代码中不应遗留 TODO/FIXME/HACK 注释"
+  enforcer: cr
+  pattern: "(TODO|FIXME|HACK|XXX)[\\s:]"
+  message: "请清理生产代码中的 TODO/FIXME/HACK 注释"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.java", "**/*.py", "**/*.js", "**/*.ts", "**/*.go", "**/*.rs"]
+  references: []
+
+- id: no-debug-code
+  level: MUST
+  category: quality
+  description: "禁止提交调试代码（debugger/breakpoint/pylint disable）"
+  enforcer: cr
+  pattern: "(debugger\\s*;|breakpoint\\(\\)|#\\s*pylint:\\s*disable=)"
+  message: "禁止提交调试代码，请移除 debugger/breakpoint/pylint disable"
+  action: block
+  severity: P1
+  applies_to: ["**/*.java", "**/*.py", "**/*.js", "**/*.ts", "**/*.go"]
+  references: []
+
+- id: no-empty-catch
+  level: MUST
+  category: error-handling
+  description: "禁止空的 catch/except 块"
+  enforcer: cr
+  pattern: "(catch\\s*\\([^)]*\\)\\s*\\{\\s*\\}|except\\s+\\w+\\s*:\\s*pass)"
+  message: "空的 catch/except 块会吞没异常，请至少记录日志"
+  action: block
+  severity: P1
+  applies_to: ["**/*.java", "**/*.py", "**/*.js", "**/*.ts", "**/*.go"]
+  references: []
+
+- id: no-magic-numbers
+  level: SHOULD
+  category: coding
+  description: "禁止在代码中使用未命名的魔法数字"
+  enforcer: cr
+  pattern: "(?<![\\w.])\\d{2,}(?![\\w.])"
+  message: "请将魔法数字提取为命名常量"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.java", "**/*.py", "**/*.js", "**/*.ts", "**/*.go"]
+  references: []
+
+- id: no-long-methods
+  level: SHOULD
+  category: design
+  description: "方法体不应过长，建议不超过80行"
+  enforcer: cr
+  pattern: "(def|function|public|private|protected)\\s+\\w+\\s*\\("
+  message: "方法体过长，建议拆分为更小的函数"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.java", "**/*.py", "**/*.js", "**/*.ts", "**/*.go"]
+  references: []
+
+- id: no-deep-nesting
+  level: SHOULD
+  category: design
+  description: "禁止过深的嵌套层级（建议不超过4层）"
+  enforcer: cr
+  pattern: "(if|for|while|switch|try)\\s*[\\(\\{]"
+  message: "嵌套层级过深，建议使用卫语句或提取子函数"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.java", "**/*.py", "**/*.js", "**/*.ts", "**/*.go"]
+  references: []
+
+- id: no-duplicate-code
+  level: SHOULD
+  category: quality
+  description: "禁止重复代码块"
+  enforcer: cr
+  pattern: "(copy|paste|duplicate)\\s*-\\s*(code|block)"
+  message: "检测到疑似重复代码，请提取公共方法"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.java", "**/*.py", "**/*.js", "**/*.ts", "**/*.go"]
+  references: []
+
+- id: no-global-state
+  level: SHOULD
+  category: design
+  description: "避免使用全局可变状态"
+  enforcer: cr
+  pattern: "(global\\s+\\w+|window\\.\\w+\\s*=|process\\.\\w+\\s*=)"
+  message: "避免使用全局可变状态，请考虑依赖注入"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.py", "**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-mutable-defaults
+  level: MUST
+  category: coding
+  description: "禁止使用可变对象作为默认值"
+  enforcer: cr
+  pattern: "(=\\s*\\[\\s*\\]|=\\s*\\{\\s*\\}|=\\s*set\\(\\))"
+  message: "不要使用可变对象作为默认值，请使用 None 或不可变对象"
+  action: block
+  severity: P1
+  applies_to: ["**/*.py", "**/*.js", "**/*.ts"]
+  references: []
+
+- id: no-eval-exec
+  level: MUST
+  category: security
+  description: "禁止使用 eval/exec 类函数"
+  enforcer: cr
+  pattern: "(\\beval\\s*\\(|\\bexec\\s*\\(|new\\s+Function\\s*\\()"
+  message: "eval/exec 存在代码注入风险，请使用安全替代方案"
+  action: block
+  severity: P0
+  applies_to: ["**/*.py", "**/*.js", "**/*.ts", "**/*.java"]
+  references: []
+
+- id: no-sql-injection
+  level: MUST
+  category: security
+  description: "禁止字符串拼接构造 SQL 语句"
+  enforcer: cr
+  pattern: "(SELECT|INSERT|UPDATE|DELETE|DROP).*\\+.*|(SELECT|INSERT|UPDATE|DELETE|DROP).*%[sd].*|f\".*SELECT|f\".*INSERT|f\".*UPDATE|f\".*DELETE"
+  message: "检测到可能的 SQL 注入，请使用参数化查询"
+  action: block
+  severity: P0
+  applies_to: ["**/*.py", "**/*.js", "**/*.ts", "**/*.java", "**/*.go"]
+  references: []
+
+- id: no-path-traversal
+  level: MUST
+  category: security
+  description: "禁止未经验证的用户输入用于文件路径"
+  enforcer: cr
+  pattern: "(open\\(.*\\+|readFile\\(.*\\+|writeFile\\(.*\\+|os\\.path\\.join\\(.*request)"
+  message: "文件路径中可能包含用户输入，请进行路径验证和规范化"
+  action: block
+  severity: P0
+  applies_to: ["**/*.py", "**/*.js", "**/*.ts", "**/*.java", "**/*.go"]
+  references: []
+
+- id: no-unsafe-deserialization
+  level: MUST
+  category: security
+  description: "禁止使用不安全的反序列化方法"
+  enforcer: cr
+  pattern: "(pickle\\.loads?\\(|yaml\\.load\\((?!Loader)|ObjectInputStream|unserialize\\()"
+  message: "不安全的反序列化可能导致远程代码执行，请使用安全替代方案"
+  action: block
+  severity: P0
+  applies_to: ["**/*.py", "**/*.js", "**/*.ts", "**/*.java"]
+  references: []
+
+- id: no-weak-crypto
+  level: MUST
+  category: security
+  description: "禁止使用弱加密算法"
+  enforcer: cr
+  pattern: "(MD5|SHA1|DES|RC4|Blowfish|hashlib\\.md5|hashlib\\.sha1|MessageDigest\\.getInstance\\s*\\(\\s*\"MD5\")"
+  message: "检测到弱加密算法，请使用 SHA-256/AES-256 等强加密算法"
+  action: block
+  severity: P0
+  applies_to: ["**/*.py", "**/*.js", "**/*.ts", "**/*.java", "**/*.go"]
+  references: []
+
+- id: no-plain-http
+  level: MUST
+  category: security
+  description: "禁止使用不加密的 HTTP 连接传输敏感数据"
+  enforcer: cr
+  pattern: "http://(?!localhost|127\\.0\\.0\\.1|0\\.0\\.0\\.0)"
+  message: "禁止使用明文 HTTP，请使用 HTTPS"
+  action: block
+  severity: P0
+  applies_to: ["**/*.py", "**/*.js", "**/*.ts", "**/*.java", "**/*.go"]
+  references: []
+
+- id: no-missing-input-validation
+  level: MUST
+  category: security
+  description: "外部输入必须进行验证"
+  enforcer: cr
+  pattern: "(request\\.(body|params|query|headers)\\[|req\\.(body|params|query)\\[|@RequestParam|@PathVariable)"
+  message: "外部输入必须进行验证和清洗"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.py", "**/*.js", "**/*.ts", "**/*.java", "**/*.go"]
+  references: []
+
+- id: no-missing-error-handling
+  level: MUST
+  category: error-handling
+  description: "关键操作必须有错误处理"
+  enforcer: cr
+  pattern: "(fetch\\(|axios\\.|http\\.get|http\\.post|requests\\.(get|post))\\("
+  message: "网络请求等关键操作必须有错误处理"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.py", "**/*.js", "**/*.ts", "**/*.java", "**/*.go"]
+  references: []
+
+- id: no-unused-imports
+  level: SHOULD
+  category: quality
+  description: "禁止未使用的导入"
+  enforcer: cr
+  pattern: "^import\\s+|^from\\s+"
+  message: "检测到未使用的导入，请移除"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.py", "**/*.js", "**/*.ts", "**/*.java", "**/*.go"]
+  references: []
+
+- id: no-broad-exception
+  level: SHOULD
+  category: error-handling
+  description: "避免捕获过于宽泛的异常类型"
+  enforcer: cr
+  pattern: "(catch\\s*\\(\\s*Exception|except\\s+Exception|except\\s+BaseException)"
+  message: "请捕获具体的异常类型，不要使用 Exception 或 BaseException"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.java", "**/*.py", "**/*.js", "**/*.ts", "**/*.go"]
+  references: []
+
+- id: no-string-concat-sql
+  level: MUST
+  category: security
+  description: "禁止通过字符串拼接构建 SQL 查询"
+  enforcer: cr
+  pattern: "\"\\s*\\+\\s*.*\\+\\s*\"|'%s'\\s*%|\\.format\\(.*SELECT|\\.format\\(.*INSERT|\\.format\\(.*UPDATE|\\.format\\(.*DELETE"
+  message: "请使用参数化查询代替字符串拼接 SQL"
+  action: block
+  severity: P0
+  applies_to: ["**/*.py", "**/*.js", "**/*.ts", "**/*.java"]
+  references: []
+
+- id: no-unsafe-redirect
+  level: MUST
+  category: security
+  description: "禁止未经验证的重定向"
+  enforcer: cr
+  pattern: "(redirect\\(.*request|sendRedirect\\(.*request|res\\.redirect\\(.*req\\.)"
+  message: "重定向目标必须验证，防止开放重定向攻击"
+  action: block
+  severity: P1
+  applies_to: ["**/*.py", "**/*.js", "**/*.ts", "**/*.java"]
+  references: []
+
+- id: no-logging-sensitive-data
+  level: MUST
+  category: security
+  description: "禁止在日志中记录敏感数据"
+  enforcer: cr
+  pattern: "(log|logger|logging|console\\.log|print)\\(.*(password|token|secret|credit_card|ssn|social_security)"
+  message: "禁止在日志中记录密码、令牌等敏感信息"
+  action: block
+  severity: P0
+  applies_to: ["**/*.py", "**/*.js", "**/*.ts", "**/*.java", "**/*.go"]
+  references: []

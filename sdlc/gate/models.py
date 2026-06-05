@@ -17,6 +17,9 @@ class GateTrigger(StrEnum):
     ON_RULE_VIOLATION = "on_rule_violation"
     ON_FAILURE = "on_failure"
     ON_STAGE_END = "on_stage_end"
+    ON_RELEASE = "on_release"
+    ON_COMPLIANCE_REQUIRED = "on_compliance_required"
+    ON_PROFILE = "on_profile"
 
 
 @dataclass
@@ -28,6 +31,7 @@ class GateDef:
     reviewer: str = ""
     deadline_hours: int = 4
     severities: list[str] = field(default_factory=list)
+    profiles: list[str] = field(default_factory=list)
     auto_pass_conditions: dict[str, Any] = field(default_factory=dict)
     block_conditions: dict[str, Any] = field(default_factory=dict)
 

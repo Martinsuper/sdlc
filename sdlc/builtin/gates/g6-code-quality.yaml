@@ -1,0 +1,11 @@
+id: G6-code-quality
+name: Code Quality Gate
+trigger: always
+after_stages: [s-implement]
+reviewer_role: TechLead
+deadline_hours: 4
+severity_required: [P0, P1]
+actions:
+  - check: code_quality
+auto_fail_if:
+  on_must_violation: true

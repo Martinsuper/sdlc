@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import subprocess
 import tempfile
 from pathlib import Path
@@ -17,7 +16,6 @@ from sdlc.integrations.git_client import GitClient
 from sdlc.integrations.http_client import HTTPClient
 from sdlc.integrations.mcp_client import MCPClient
 from sdlc.integrations.shell_runner import ShellResult, ShellRunner
-from sdlc.integrations.skill_runner import SkillRunner
 from sdlc.integrations.whitelist import (
     SecurityError,
     is_command_allowed,
@@ -473,29 +471,7 @@ class TestFileSystem:
 
 
 # ---------------------------------------------------------------------------
-# mcp_client.py tests
+# mcp_client.py and skill_runner.py tests are in
+# tests/test_integrations_mcp_skill.py
 # ---------------------------------------------------------------------------
-
-
-class TestMCPClient:
-    """Tests for MCPClient stub."""
-
-    def test_call_raises_not_implemented(self) -> None:
-        client = MCPClient()
-        with pytest.raises(NotImplementedError, match="M2"):
-            asyncio.run(client.call("server", "tool", {}))
-
-
-# ---------------------------------------------------------------------------
-# skill_runner.py tests
-# ---------------------------------------------------------------------------
-
-
-class TestSkillRunner:
-    """Tests for SkillRunner stub."""
-
-    def test_run_raises_not_implemented(self) -> None:
-        runner = SkillRunner()
-        with pytest.raises(NotImplementedError, match="M2"):
-            runner.run("skill_name", {})
 

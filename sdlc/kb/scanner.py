@@ -1,10 +1,12 @@
-"""kb — 7-stage project scanner."""
+"""kb -- 7-stage project scanner with parallel file reading and result caching."""
 
+import hashlib
 import json
 import logging
 import os
 import re
 import warnings
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
@@ -124,9 +126,24 @@ GIT_HOOK_PATHS: list[str] = [
     ".pre-commit-config.yaml",
 ]
 
+# Pre-compiled regex patterns for manifest parsers (performance)
+_RE_PYPROJECT_NAME = re.compile(r'name\s*=\s*"([^"]+)"')
+_RE_PYPROJECT_DEP = re.compile(r'\s*"([^"<>=!~\s]+)')
+_RE_POM_GROUP = re.compile(r"<groupId>([^<]+)</groupId>")
+_RE_POM_ARTIFACT = re.compile(r"<artifactId>([^<]+)</artifactId>")
+_RE_POM_DEP = re.compile(r"<dependency>.*?<artifactId>([^<]+)</artifactId>", re.DOTALL)
+_RE_GO_MODULE = re.compile(r"^module\s+(\S+)", re.MULTILINE)
+_RE_GO_REQUIRE = re.compile(r"\s*(\S+)")
+_RE_CARGO_NAME = re.compile(r'name\s*=\s*"([^"]+)"')
+_RE_CARGO_DEP = re.compile(r"([a-zA-Z0-9_-]+)\s*=")
+_RE_REQ_DEP = re.compile(r"([a-zA-Z0-9._-]+)")
+
+# Maximum parallel readers for file I/O
+_MAX_PARALLEL_READERS = 8
+
 
 # ---------------------------------------------------------------------------
-# ScanContext — internal data holder
+# ScanContext -- internal data holder
 # ---------------------------------------------------------------------------
 
 
@@ -160,11 +177,22 @@ class ScanContext:
 # ---------------------------------------------------------------------------
 
 
+def _read_file_safe(path: Path) -> str | None:
+    """Read a file and return its text content, or None on failure."""
+    try:
+        return path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
 def _parse_package_json(path: Path) -> dict[str, Any]:
     """Parse package.json and extract name, dependencies, devDependencies, scripts."""
+    text = _read_file_safe(path)
+    if text is None:
+        return {}
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+        data = json.loads(text)
+    except json.JSONDecodeError:
         return {}
     result: dict[str, Any] = {"name": data.get("name", "")}
     deps = data.get("dependencies", {})
@@ -177,12 +205,11 @@ def _parse_package_json(path: Path) -> dict[str, Any]:
 
 def _parse_pyproject_toml(path: Path) -> dict[str, Any]:
     """Basic text parsing of pyproject.toml (no external toml lib needed)."""
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError:
+    text = _read_file_safe(path)
+    if text is None:
         return {}
     result: dict[str, Any] = {"name": "", "dependencies": []}
-    m = re.search(r'name\s*=\s*"([^"]+)"', text)
+    m = _RE_PYPROJECT_NAME.search(text)
     if m:
         result["name"] = m.group(1)
     in_deps = False
@@ -195,7 +222,7 @@ def _parse_pyproject_toml(path: Path) -> dict[str, Any]:
             if stripped.startswith("]"):
                 in_deps = False
                 continue
-            dep_match = re.match(r'\s*"([^"<>=!~\s]+)', stripped)
+            dep_match = _RE_PYPROJECT_DEP.match(stripped)
             if dep_match:
                 result["dependencies"].append(dep_match.group(1))
     return result
@@ -203,30 +230,28 @@ def _parse_pyproject_toml(path: Path) -> dict[str, Any]:
 
 def _parse_pom_xml(path: Path) -> dict[str, Any]:
     """Basic regex parsing of pom.xml."""
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError:
+    text = _read_file_safe(path)
+    if text is None:
         return {}
     result: dict[str, Any] = {"groupId": "", "artifactId": "", "dependencies": []}
-    m = re.search(r"<groupId>([^<]+)</groupId>", text)
+    m = _RE_POM_GROUP.search(text)
     if m:
         result["groupId"] = m.group(1)
-    m = re.search(r"<artifactId>([^<]+)</artifactId>", text)
+    m = _RE_POM_ARTIFACT.search(text)
     if m:
         result["artifactId"] = m.group(1)
-    dep_ids = re.findall(r"<dependency>.*?<artifactId>([^<]+)</artifactId>", text, re.DOTALL)
+    dep_ids = _RE_POM_DEP.findall(text)
     result["dependencies"] = dep_ids
     return result
 
 
 def _parse_go_mod(path: Path) -> dict[str, Any]:
     """Parse go.mod for module name and requires."""
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError:
+    text = _read_file_safe(path)
+    if text is None:
         return {}
     result: dict[str, Any] = {"module": "", "requires": []}
-    m = re.search(r"^module\s+(\S+)", text, re.MULTILINE)
+    m = _RE_GO_MODULE.search(text)
     if m:
         result["module"] = m.group(1)
     in_require = False
@@ -239,7 +264,7 @@ def _parse_go_mod(path: Path) -> dict[str, Any]:
             if stripped == ")":
                 in_require = False
                 continue
-            req_match = re.match(r"\s*(\S+)", stripped)
+            req_match = _RE_GO_REQUIRE.match(stripped)
             if req_match:
                 result["requires"].append(req_match.group(1))
         elif stripped.startswith("require "):
@@ -251,12 +276,11 @@ def _parse_go_mod(path: Path) -> dict[str, Any]:
 
 def _parse_cargo_toml(path: Path) -> dict[str, Any]:
     """Basic text parsing of Cargo.toml."""
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError:
+    text = _read_file_safe(path)
+    if text is None:
         return {}
     result: dict[str, Any] = {"name": "", "dependencies": []}
-    m = re.search(r'name\s*=\s*"([^"]+)"', text)
+    m = _RE_CARGO_NAME.search(text)
     if m:
         result["name"] = m.group(1)
     in_deps = False
@@ -269,7 +293,7 @@ def _parse_cargo_toml(path: Path) -> dict[str, Any]:
             if stripped.startswith("["):
                 in_deps = False
                 continue
-            dep_match = re.match(r"([a-zA-Z0-9_-]+)\s*=", stripped)
+            dep_match = _RE_CARGO_DEP.match(stripped)
             if dep_match:
                 result["dependencies"].append(dep_match.group(1))
     return result
@@ -277,16 +301,15 @@ def _parse_cargo_toml(path: Path) -> dict[str, Any]:
 
 def _parse_requirements_txt(path: Path) -> dict[str, Any]:
     """Parse requirements.txt for dependency names."""
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError:
+    text = _read_file_safe(path)
+    if text is None:
         return {}
     deps: list[str] = []
     for line in text.splitlines():
         line = line.strip()
         if not line or line.startswith("#") or line.startswith("-"):
             continue
-        m = re.match(r"([a-zA-Z0-9._-]+)", line)
+        m = _RE_REQ_DEP.match(line)
         if m:
             deps.append(m.group(1))
     return {"dependencies": deps}
@@ -412,6 +435,48 @@ def _detect_build_tools(manifests: dict[str, dict[str, Any]], languages: dict[st
 
 
 # ---------------------------------------------------------------------------
+# Scan result cache
+# ---------------------------------------------------------------------------
+
+
+class ScanResultCache:
+    """File-content-based cache to skip re-reading unchanged files across scans.
+
+    Uses a SHA-256 fingerprint of each file's content as the cache key.
+    If the fingerprint matches, the previously parsed result is reused.
+    """
+
+    def __init__(self) -> None:
+        self._cache: dict[str, tuple[str, dict[str, Any]]] = {}  # path -> (fingerprint, parsed)
+
+    def get(self, path: Path) -> dict[str, Any] | None:
+        """Return cached parse result if the file content hasn't changed."""
+        key = str(path)
+        cached = self._cache.get(key)
+        if cached is None:
+            return None
+        stored_fp, parsed = cached
+        text = _read_file_safe(path)
+        if text is None:
+            return None
+        current_fp = hashlib.sha256(text.encode()).hexdigest()
+        if current_fp == stored_fp:
+            return parsed
+        return None
+
+    def put(self, path: Path, parsed: dict[str, Any]) -> None:
+        """Store a parse result keyed by file content fingerprint."""
+        text = _read_file_safe(path)
+        if text is None:
+            return
+        fp = hashlib.sha256(text.encode()).hexdigest()
+        self._cache[str(path)] = (fp, parsed)
+
+    def clear(self) -> None:
+        self._cache.clear()
+
+
+# ---------------------------------------------------------------------------
 # Scanner
 # ---------------------------------------------------------------------------
 
@@ -422,6 +487,7 @@ class Scanner:
     def __init__(self, root: Path, config: dict[str, Any] | None = None) -> None:
         self.root = root
         self.config = config or {}
+        self._result_cache = ScanResultCache()
 
     def scan(self, depth: int = 5, no_llm: bool = False) -> ScanResult:
         """Run the 7-stage scan pipeline."""
@@ -436,16 +502,41 @@ class Scanner:
         return self._stage7_generate_result(context)
 
     def _stage1_basic(self, ctx: ScanContext, depth: int) -> None:
-        """File tree, manifests, CI, containers."""
+        """File tree, manifests, CI, containers -- with parallel manifest reading."""
         ctx.file_tree = self._walk_file_tree(ctx.root, depth)
+
+        # Collect manifest paths that exist
+        manifest_paths: list[tuple[str, Path]] = []
         for name in MANIFESTS:
             p = ctx.root / name
             if p.is_file():
-                parser = _MANIFEST_PARSERS.get(name)
-                if parser is not None:
-                    ctx.manifests[name] = parser(p)
-                else:
+                manifest_paths.append((name, p))
+
+        # Parse manifests in parallel using ThreadPoolExecutor
+        if manifest_paths:
+            with ThreadPoolExecutor(max_workers=min(len(manifest_paths), _MAX_PARALLEL_READERS)) as pool:
+                futures = {}
+                for name, path in manifest_paths:
+                    parser = _MANIFEST_PARSERS.get(name)
+                    if parser is not None:
+                        # Check cache first
+                        cached = self._result_cache.get(path)
+                        if cached is not None:
+                            ctx.manifests[name] = cached
+                        else:
+                            futures[pool.submit(parser, path)] = (name, path)
+                    else:
+                        ctx.manifests[name] = {}
+
+            for future in as_completed(futures):
+                name, path = futures[future]
+                try:
+                    parsed = future.result()
+                    ctx.manifests[name] = parsed
+                    self._result_cache.put(path, parsed)
+                except Exception:
                     ctx.manifests[name] = {}
+
         for ci_path in CI_PATHS:
             p = ctx.root / ci_path
             if p.exists():

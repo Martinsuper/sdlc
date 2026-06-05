@@ -23,5 +23,10 @@ class LazyImport:
         return f"LazyImport({self._module_name!r})"
 
 
-# Lazy aliases for heavy modules — actual import deferred until first use.
+# Lazy aliases for heavy modules -- actual import deferred until first use.
 state_store = LazyImport("sdlc.state")
+llm_cache = LazyImport("sdlc.llm.cache")
+kb_scanner = LazyImport("sdlc.kb.scanner")
+stage_catalog = LazyImport("sdlc.stage.catalog")
+stage_runner = LazyImport("sdlc.stage.runner")
+rule_engine = LazyImport("sdlc.rule.engine")

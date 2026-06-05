@@ -33,3 +33,267 @@
   severity: P2
   applies_to: ["**/*.go"]
   references: []
+
+- id: no-unsafe-pointer
+  level: MUST
+  category: safety
+  description: "禁止使用 unsafe.Pointer"
+  enforcer: cr
+  pattern: "unsafe\\.Pointer"
+  message: "unsafe.Pointer 绕过类型安全，除非有充分理由否则禁止使用"
+  action: block
+  severity: P0
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: no-cgo-unsafe
+  level: MUST
+  category: safety
+  description: "禁止使用 unsafe 包与 CGo 交互"
+  enforcer: cr
+  pattern: "import\\s+\"unsafe\"|unsafe\\.Pointer.*C\\."
+  message: "CGo 与 unsafe 组合使用极易引发内存安全问题"
+  action: block
+  severity: P0
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: no-os-exit-main
+  level: MUST
+  category: reliability
+  description: "禁止在 main 以外的函数中调用 os.Exit"
+  enforcer: cr
+  pattern: "os\\.Exit\\("
+  message: "os.Exit 会跳过 defer 和清理逻辑，请使用 error 传播"
+  action: block
+  severity: P1
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: no-error-ignored
+  level: MUST
+  category: error-handling
+  description: "禁止忽略 error 返回值"
+  enforcer: cr
+  pattern: "_\\s*,?\\s*:?=?\\s*\\w+\\(.*\\)(?!.*if\\s+err)"
+  message: "不要忽略 error 返回值，必须处理或显式记录"
+  action: block
+  severity: P1
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: no-panic-recover
+  level: SHOULD
+  category: error-handling
+  description: "避免使用 panic/recover 作为常规错误处理"
+  enforcer: cr
+  pattern: "recover\\s*\\(\\)"
+  message: "panic/recover 不应用于常规错误处理，请返回 error"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: no-goroutine-leak
+  level: MUST
+  category: reliability
+  description: "goroutine 必须有退出机制"
+  enforcer: cr
+  pattern: "go\\s+func\\s*\\("
+  message: "goroutine 必须有退出机制（context 取消或 done channel）"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: no-global-mutex
+  level: SHOULD
+  category: design
+  description: "避免使用包级全局互斥锁"
+  enforcer: cr
+  pattern: "var\\s+\\w+\\s+sync\\.(Mutex|RWMutex)"
+  message: "全局互斥锁可能导致死锁，请封装在结构体中"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: no-sql-string-concat
+  level: MUST
+  category: security
+  description: "禁止通过字符串拼接构造 SQL 查询"
+  enforcer: cr
+  pattern: "(fmt\\.Sprintf|\\+).*SELECT|fmt\\.Sprintf.*INSERT|fmt\\.Sprintf.*UPDATE|fmt\\.Sprintf.*DELETE"
+  message: "请使用参数化查询，不要拼接 SQL 字符串"
+  action: block
+  severity: P0
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: no-hardcoded-credentials
+  level: MUST
+  category: security
+  description: "禁止硬编码凭证"
+  enforcer: cr
+  pattern: "(password|secret|token|apikey|api_key)\\s*:?=?\\s*[\"'][^\"']+[\"']"
+  message: "禁止硬编码凭证，请使用环境变量或配置"
+  action: block
+  severity: P0
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: no-unsafe-reflection
+  level: SHOULD
+  category: safety
+  description: "谨慎使用 reflect 包"
+  enforcer: cr
+  pattern: "reflect\\.(ValueOf|TypeOf|FieldByName|MethodByName)"
+  message: "reflect 操作绕过编译时类型检查，请确认必要性"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: no-struct-without-json
+  level: SHOULD
+  category: design
+  description: "API 响应结构体应包含 json 标签"
+  enforcer: cr
+  pattern: "type\\s+\\w+\\s+struct\\s*\\{"
+  message: "结构体应包含 json 标签以规范序列化行为"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: no-unsupported-marshaling
+  level: MUST
+  category: reliability
+  description: "禁止序列化不可序列化的类型"
+  enforcer: cr
+  pattern: "json\\.Marshal\\(.*(chan|func|unsafe)"
+  message: "channel、函数和 unsafe 类型不能被 JSON 序列化"
+  action: block
+  severity: P1
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: no-file-path-traversal
+  level: MUST
+  category: security
+  description: "文件路径必须验证防止目录遍历"
+  enforcer: cr
+  pattern: "(os\\.Open|os\\.ReadFile|ioutil\\.ReadFile)\\s*\\(.*\\+"
+  message: "文件路径包含动态拼接，请验证防止路径遍历攻击"
+  action: block
+  severity: P0
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: no-weak-rand
+  level: MUST
+  category: security
+  description: "安全场景禁止使用 math/rand"
+  enforcer: cr
+  pattern: "math/rand|math\\\\rand|rand\\.(Intn|Float64|Read)"
+  message: "安全相关场景请使用 crypto/rand 而非 math/rand"
+  action: block
+  severity: P0
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: no-net-listen-all
+  level: MUST
+  category: security
+  description: "网络监听不应绑定 0.0.0.0"
+  enforcer: cr
+  pattern: "net\\.Listen\\s*\\(.*0\\.0\\.0\\.0|net\\.Listen\\s*\\(.*:.*\\)"
+  message: "监听 0.0.0.0 会暴露到所有网络接口，请绑定特定地址"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: no-debug-endpoint
+  level: MUST
+  category: security
+  description: "生产环境禁止暴露 debug 端点"
+  enforcer: cr
+  pattern: "(debug|pprof|expvar)\\.Handler|/debug/"
+  message: "生产环境不应暴露 debug/pprof/expvar 端点"
+  action: block
+  severity: P0
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: no-missing-defer-close
+  level: MUST
+  category: reliability
+  description: "打开的资源必须 defer Close()"
+  enforcer: cr
+  pattern: "(os\\.Open|os\\.Create|os\\.OpenFile)\\s*\\((?!.*defer.*Close)"
+  message: "打开的文件必须通过 defer Close() 确保释放"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: no-empty-interface
+  level: SHOULD
+  category: design
+  description: "避免使用 interface{} 作为类型"
+  enforcer: cr
+  pattern: "interface\\s*\\{\\s*\\}"
+  message: "interface{} 缺乏类型约束，请使用具体类型或泛型"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: no-naked-goroutine
+  level: MUST
+  category: reliability
+  description: "goroutine 必须有错误处理"
+  enforcer: cr
+  pattern: "go\\s+(func|\\w+\\()"
+  message: "裸启动的 goroutine 中的 panic 会导致程序崩溃，请添加 recover"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: no-race-condition
+  level: MUST
+  category: reliability
+  description: "共享变量必须使用同步机制"
+  enforcer: cr
+  pattern: "(?<!sync\\.)(?<!atomic\\.)\\w+\\s*:?=?\\s*\\d+"
+  message: "并发访问共享变量必须使用 mutex 或 atomic 操作"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: no-unsafe-cast
+  level: SHOULD
+  category: safety
+  description: "类型断言必须检查 ok 值"
+  enforcer: cr
+  pattern: "\\.\\(\\w+\\)(?!.*ok)"
+  message: "类型断言必须使用 value, ok := x.(T) 形式检查"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.go"]
+  references: []
+
+- id: no-redundant-import
+  level: SHOULD
+  category: quality
+  description: "禁止未使用的导入"
+  enforcer: cr
+  pattern: "import\\s*\\("
+  message: "请移除未使用的导入包"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.go"]
+  references: []

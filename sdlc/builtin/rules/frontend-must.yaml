@@ -33,3 +33,279 @@
   severity: P2
   applies_to: ["**/*.ts", "**/*.tsx"]
   references: []
+
+- id: no-dangerously-set-innerhtml
+  level: MUST
+  category: security
+  description: "禁止使用 dangerouslySetInnerHTML"
+  enforcer: cr
+  pattern: "dangerouslySetInnerHTML"
+  message: "dangerouslySetInnerHTML 可能导致 XSS 攻击，请使用安全的渲染方式"
+  action: block
+  severity: P0
+  applies_to: ["**/*.jsx", "**/*.tsx"]
+  references: []
+
+- id: no-eval-jsx
+  level: MUST
+  category: security
+  description: "禁止在 JSX 中使用 eval"
+  enforcer: cr
+  pattern: "(eval\\s*\\(|new\\s+Function\\s*\\()"
+  message: "JSX 中禁止使用 eval，存在代码注入风险"
+  action: block
+  severity: P0
+  applies_to: ["**/*.jsx", "**/*.tsx", "**/*.vue"]
+  references: []
+
+- id: no-inline-styles-secret
+  level: MUST
+  category: security
+  description: "禁止在内联样式中包含敏感信息"
+  enforcer: cr
+  pattern: "style=\\{.*((api_?key|secret|password|token)\\s*:)"
+  message: "内联样式中不应包含敏感信息"
+  action: block
+  severity: P0
+  applies_to: ["**/*.jsx", "**/*.tsx", "**/*.vue"]
+  references: []
+
+- id: no-unsafe-href
+  level: MUST
+  category: security
+  description: "禁止使用 javascript: 协议的 href"
+  enforcer: cr
+  pattern: "href\\s*=\\s*[\"']javascript:"
+  message: "javascript: 协议的 href 存在 XSS 风险"
+  action: block
+  severity: P0
+  applies_to: ["**/*.jsx", "**/*.tsx", "**/*.vue", "**/*.html"]
+  references: []
+
+- id: no-target-blank
+  level: MUST
+  category: security
+  description: "target=_blank 必须配合 rel=noopener"
+  enforcer: cr
+  pattern: "target\\s*=\\s*[\"']_blank[\"'](?![^<]*rel\\s*=\\s*[\"'][^\"']*noopener)"
+  message: "target=_blank 必须添加 rel=noopener noreferrer 防止 tabnapping 攻击"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.jsx", "**/*.tsx", "**/*.vue", "**/*.html"]
+  references: []
+
+- id: no-v-html-unsafe
+  level: MUST
+  category: security
+  description: "禁止使用 v-html 渲染用户输入"
+  enforcer: cr
+  pattern: "v-html"
+  message: "v-html 可能导致 XSS 攻击，请使用 v-text 或组件渲染"
+  action: block
+  severity: P0
+  applies_to: ["**/*.vue"]
+  references: []
+
+- id: no-document-write
+  level: MUST
+  category: security
+  description: "禁止使用 document.write()"
+  enforcer: cr
+  pattern: "document\\.write\\s*\\("
+  message: "document.write() 存在安全风险且影响性能"
+  action: block
+  severity: P1
+  applies_to: ["**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx", "**/*.vue"]
+  references: []
+
+- id: no-window-open
+  level: SHOULD
+  category: security
+  description: "谨慎使用 window.open()"
+  enforcer: cr
+  pattern: "window\\.open\\s*\\("
+  message: "window.open() 可能被滥用，请验证目标 URL"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx", "**/*.vue"]
+  references: []
+
+- id: no-innerhtml-usage
+  level: MUST
+  category: security
+  description: "禁止使用 innerHTML"
+  enforcer: cr
+  pattern: "\\.innerHTML\\s*="
+  message: "innerHTML 存在 XSS 风险，请使用 textContent 或 DOM API"
+  action: block
+  severity: P0
+  applies_to: ["**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx", "**/*.vue"]
+  references: []
+
+- id: no-localstorage-sensitive
+  level: MUST
+  category: security
+  description: "禁止在 localStorage 中存储敏感信息"
+  enforcer: cr
+  pattern: "localStorage\\.setItem\\(.*(token|password|secret|api_?key|credential)"
+  message: "localStorage 不应存储敏感信息，请使用 httpOnly cookie"
+  action: block
+  severity: P0
+  applies_to: ["**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx", "**/*.vue"]
+  references: []
+
+- id: no-console-log-prod
+  level: SHOULD
+  category: quality
+  description: "生产构建中应移除 console 语句"
+  enforcer: cr
+  pattern: "console\\.(log|debug|trace|info)\\("
+  message: "生产代码中应移除 console 调试语句"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx", "**/*.vue"]
+  references: []
+
+- id: no-unused-css
+  level: SHOULD
+  category: quality
+  description: "避免未使用的 CSS 样式"
+  enforcer: cr
+  pattern: ""
+  message: "检测到可能未使用的 CSS 样式"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.css", "**/*.scss", "**/*.less"]
+  references: []
+
+- id: no-missing-alt-text
+  level: MUST
+  category: accessibility
+  description: "img 标签必须包含 alt 属性"
+  enforcer: cr
+  pattern: "<img[^>]*(?!alt=)[^>]*>"
+  message: "img 标签必须包含有意义的 alt 属性"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.jsx", "**/*.tsx", "**/*.vue", "**/*.html"]
+  references: []
+
+- id: no-missing-aria-label
+  level: SHOULD
+  category: accessibility
+  description: "交互元素必须有可访问的标签"
+  enforcer: cr
+  pattern: "(<button[^>]*>|<a[^>]*href[^>]*>)(?!.*aria-label)"
+  message: "交互元素缺少 aria-label 或文字内容，影响无障碍访问"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.jsx", "**/*.tsx", "**/*.vue", "**/*.html"]
+  references: []
+
+- id: no-auto-focus
+  level: SHOULD
+  category: accessibility
+  description: "避免使用 autoFocus 属性"
+  enforcer: cr
+  pattern: "autoFocus|autofocus"
+  message: "autoFocus 可能对屏幕阅读器用户造成困扰"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.jsx", "**/*.tsx", "**/*.vue", "**/*.html"]
+  references: []
+
+- id: no-positive-tabindex
+  level: MUST
+  category: accessibility
+  description: "禁止使用正数 tabindex"
+  enforcer: cr
+  pattern: "tabIndex\\s*=\\s*[\"']?[1-9]|tabindex\\s*=\\s*[\"']?[1-9]"
+  message: "正数 tabindex 会干扰自然的 Tab 顺序，请使用 0 或 -1"
+  action: block
+  severity: P1
+  applies_to: ["**/*.jsx", "**/*.tsx", "**/*.vue", "**/*.html"]
+  references: []
+
+- id: no-missing-key-prop
+  level: MUST
+  category: framework
+  description: "列表渲染必须提供 key 属性"
+  enforcer: cr
+  pattern: "\\.map\\s*\\([^)]*=>\\s*(<\\w+[^>]*(?!key=))"
+  message: "列表渲染中缺少 key 属性，可能导致渲染异常"
+  action: block
+  severity: P1
+  applies_to: ["**/*.jsx", "**/*.tsx", "**/*.vue"]
+  references: []
+
+- id: no-array-index-key
+  level: SHOULD
+  category: framework
+  description: "避免使用数组索引作为 key"
+  enforcer: cr
+  pattern: "key\\s*=\\s*\\{\\s*index|key\\s*=\\s*\\{\\s*i\\s*\\}"
+  message: "使用数组索引作为 key 可能导致渲染问题，请使用唯一标识"
+  action: warn
+  severity: P2
+  applies_to: ["**/*.jsx", "**/*.tsx", "**/*.vue"]
+  references: []
+
+- id: no-missing-proptypes
+  level: SHOULD
+  category: quality
+  description: "React 组件应定义 PropTypes"
+  enforcer: cr
+  pattern: "PropTypes\\."
+  message: "建议为组件定义 PropTypes 类型检查"
+  action: warn
+  severity: P3
+  applies_to: ["**/*.jsx", "**/*.tsx"]
+  references: []
+
+- id: no-stale-closure
+  level: MUST
+  category: reliability
+  description: "useEffect 中引用的状态可能已过时"
+  enforcer: cr
+  pattern: "useEffect\\s*\\(\\s*\\(\\)\\s*=>\\s*\\{[^}]*(?!return)"
+  message: "useEffect 中的闭包可能捕获过时的状态，请检查依赖数组"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.jsx", "**/*.tsx"]
+  references: []
+
+- id: no-memory-leak-effect
+  level: MUST
+  category: reliability
+  description: "useEffect 必须返回清理函数"
+  enforcer: cr
+  pattern: "useEffect\\s*\\(\\s*\\(\\)\\s*=>\\s*\\{[^}]*\\b(addEventListener|subscribe|setInterval|setTimeout)\\b"
+  message: "useEffect 中注册的监听器/订阅必须通过清理函数释放"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.jsx", "**/*.tsx"]
+  references: []
+
+- id: no-dependency-array-missing
+  level: MUST
+  category: reliability
+  description: "useEffect/useMemo/useCallback 必须提供依赖数组"
+  enforcer: cr
+  pattern: "use(Callback|Effect|Memo|LayoutEffect)\\s*\\(\\s*\\(\\)\\s*=>\\s*[^,]+\\s*\\)"
+  message: "Hook 必须提供依赖数组以确保行为正确"
+  action: warn
+  severity: P1
+  applies_to: ["**/*.jsx", "**/*.tsx"]
+  references: []
+
+- id: no-unsafe-url-construct
+  level: MUST
+  category: security
+  description: "URL 构造时必须验证协议"
+  enforcer: cr
+  pattern: "new\\s+URL\\s*\\(.*\\+|url\\s*\\+.*\\+"
+  message: "动态构造 URL 时必须验证协议，防止 javascript: 注入"
+  action: block
+  severity: P1
+  applies_to: ["**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx", "**/*.vue"]
+  references: []
