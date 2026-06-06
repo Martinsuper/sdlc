@@ -371,4 +371,4 @@ class TestConfigTestLlm:
         env = {k: v for k, v in os.environ.items() if k not in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY")}
         result = runner.invoke(config, ["test-llm"], env=env)
         assert result.exit_code == 0
-        assert "Testing LLM connectivity" in result.output
+        assert "Testing LLM" in result.output

@@ -12,6 +12,11 @@ class LLMConfig(BaseModel):
     temperature: float = 0.7
     timeout: float = 120.0
     max_cost_usd: float = 5.0
+    # Fallback provider configuration
+    fallback_provider: str | None = None
+    fallback_model: str | None = None
+    fallback_base_url: str | None = None
+    fallback_api_key_env: str | None = None
 
 
 class ProfileConfig(BaseModel):

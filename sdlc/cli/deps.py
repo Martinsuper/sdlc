@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 
 from sdlc.adapter import AdapterRegistry, register_dongboot
@@ -10,7 +9,7 @@ from sdlc.audit import AuditLogger
 from sdlc.core import EntryDetector, PipelineBuilder, RunCoordinator
 from sdlc.gate import GateEngine
 from sdlc.kb.memory import MemoryL2
-from sdlc.llm import AnthropicProvider, CostTracker, MultiLLMClient, OpenAIProvider
+from sdlc.llm import CostTracker, MultiLLMClient
 from sdlc.profile import ProfileRegistry
 from sdlc.profile import register_builtins as register_profiles
 from sdlc.stage import StageCatalog
@@ -104,17 +103,18 @@ def build_deps(config: SdlcConfig | None = None) -> DependencyContainer:
     sub_registry = SubagentRegistry()
     register_subagents(sub_registry)
 
-    anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    openai_key = os.environ.get("OPENAI_API_KEY", "")
-    primary = AnthropicProvider(api_key=anthropic_key)
-    # OpenAI provider requires a non-empty key at construction time;
-    # fall back to a placeholder key when the env var is not set.
-    # Actual LLM calls will fail at request time, not construction time.
-    try:
-        fallback = OpenAIProvider(api_key=openai_key or "sk-placeholder")
-    except Exception:
-        fallback = OpenAIProvider(api_key="sk-placeholder")
-    llm = MultiLLMClient(primary=primary, fallback=fallback)
+    # Build LLM providers via factory
+    from sdlc.llm.client import ModelRouter
+    from sdlc.llm.provider_factory import ProviderFactory
+
+    primary = ProviderFactory.create(config.llm)
+    fallback = ProviderFactory.create_fallback(config.llm)
+
+    router = ModelRouter(
+        provider_type=config.llm.provider,
+        default_model=config.llm.model,
+    )
+    llm = MultiLLMClient(primary=primary, fallback=fallback, router=router)
     subagent_pool = SubagentPool(registry=sub_registry, llm=llm, audit=audit)
 
     max_cost = (

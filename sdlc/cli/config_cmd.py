@@ -23,6 +23,10 @@ def config_show(as_json):
     else:
         click.echo(f"LLM Provider:   {cfg.llm.provider}")
         click.echo(f"Primary Model:  {cfg.llm.model}")
+        click.echo(f"Base URL:       {cfg.llm.base_url or '(default)'}")
+        click.echo(f"API Key Env:    {cfg.llm.api_key_env}")
+        if cfg.llm.fallback_provider:
+            click.echo(f"Fallback:       {cfg.llm.fallback_provider} / {cfg.llm.fallback_model}")
         click.echo(f"Cache Enabled:  {cfg.cache_enabled}")
         click.echo(f"Log Level:      {cfg.log_level}")
         click.echo(f"Audit Enabled:  {cfg.audit_enabled}")
@@ -107,31 +111,48 @@ def config_path():
 
 @config.command("test-llm")
 def config_test_llm():
-    """Test LLM connectivity."""
-    click.echo("Testing LLM connectivity...")
-    try:
-        from sdlc.llm.anthropic_provider import AnthropicProvider
+    """Test LLM connectivity for all configured providers."""
+    from sdlc.llm.presets import list_presets
+    from sdlc.utils.config_loader import load_config
 
-        key = os.environ.get("ANTHROPIC_API_KEY", "")
-        if key:
-            AnthropicProvider(api_key=key)
-            click.echo("  Anthropic: Provider initialized successfully")
-        else:
-            click.echo("  Anthropic: Skipped (ANTHROPIC_API_KEY not set)")
-    except Exception as e:
-        click.echo(f"  Anthropic: Failed — {e}")
-    try:
-        from sdlc.llm.openai_provider import OpenAIProvider
+    cfg = load_config()
+    click.echo("Testing LLM providers...\n")
 
-        key = os.environ.get("OPENAI_API_KEY", "")
-        if key:
-            OpenAIProvider(api_key=key)
-            click.echo("  OpenAI: Provider initialized successfully")
-        else:
-            click.echo("  OpenAI: Skipped (OPENAI_API_KEY not set)")
-    except Exception as e:
-        click.echo(f"  OpenAI: Failed — {e}")
-    click.echo("Note: API key validation requires actual API calls (M2).")
+    # Test current provider
+    click.echo(f"[1] Current: {cfg.llm.provider} ({cfg.llm.model})")
+    api_key = os.environ.get(cfg.llm.api_key_env, "")
+    if api_key:
+        try:
+            from sdlc.llm.provider_factory import ProviderFactory
+
+            provider = ProviderFactory.create(cfg.llm)
+            info = provider.model_info(cfg.llm.model)
+            click.echo(f"    OK: Provider initialized: {info.name} (context={info.max_context})")
+        except Exception as e:
+            click.echo(f"    FAIL: {e}")
+    else:
+        click.echo(f"    SKIP: API key not set ({cfg.llm.api_key_env})")
+
+    # Test fallback if configured
+    if cfg.llm.fallback_provider:
+        click.echo(f"\n[2] Fallback: {cfg.llm.fallback_provider}")
+        try:
+            from sdlc.llm.provider_factory import ProviderFactory
+
+            fb = ProviderFactory.create_fallback(cfg.llm)
+            if fb:
+                click.echo("    OK: Fallback provider initialized")
+            else:
+                click.echo("    FAIL: Could not create fallback provider")
+        except Exception as e:
+            click.echo(f"    FAIL: {e}")
+
+    # Quick test of preset API key availability
+    click.echo("\n=== Preset API Key Check ===")
+    for p in list_presets():
+        key = os.environ.get(p.api_key_env, "")
+        status = "OK" if key else "not set"
+        click.echo(f"  {p.id:15s}  {status}  ({p.api_key_env})")
 
 
 @config.command("reset")
