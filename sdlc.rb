@@ -1,7 +1,7 @@
 class Sdlc < Formula
   desc "AI-driven full-lifecycle SDLC orchestration CLI tool"
   homepage "https://github.com/your-org/sdlc"
-  url "https://pypi.org/packages/source/s/sdlc/sdlc-0.4.0.tar.gz"
+  url "https://pypi.org/packages/source/s/sdlc/sdlc-1.0.0.tar.gz"
   sha256 "PLACEHOLDER_SHA256"
   license "MIT"
 
@@ -12,6 +12,6 @@ class Sdlc < Formula
   end
 
   test do
-    assert_match "0.4.0", shell_output("#{bin}/sdlc --version")
+    assert_match "1.0.0", shell_output("#{bin}/sdlc --version")
   end
 end
