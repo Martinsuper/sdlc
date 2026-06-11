@@ -46,7 +46,7 @@ class CompletionRequest(BaseModel):
     messages: list[Message] = []
     tools: list[Tool] = []
     system: str | None = None
-    max_tokens: int = 4096
+    max_tokens: int = 16384
     temperature: float = 0.7
     top_p: float = 1.0
     stop_sequences: list[str] = []
@@ -58,6 +58,10 @@ class CompletionResponse(BaseModel):
     model: str = ""
     content: list[ContentBlock] = []
     stop_reason: str = ""
+    # NOTE: In streaming mode, usage and cost_usd must still be populated.
+    # Stream providers should accumulate token counts from stream events and
+    # compute cost_usd before returning the final CompletionResponse.
+    # Leaving these as zero defeats budget tracking and cost visibility.
     usage: Usage = Field(default_factory=Usage)
     cost_usd: float = 0.0
     duration_ms: int = 0

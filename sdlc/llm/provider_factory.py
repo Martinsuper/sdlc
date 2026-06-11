@@ -8,7 +8,7 @@ from sdlc.llm.openai_compatible import OpenAICompatibleProvider
 from sdlc.llm.openai_provider import OpenAIProvider
 from sdlc.llm.presets import ProviderPreset, get_preset
 from sdlc.utils.config import LLMConfig
-from sdlc.utils.exceptions import SdlcError
+from sdlc.utils.exceptions import ConfigError, SdlcError
 
 
 class ProviderNotFoundError(SdlcError):
@@ -17,6 +17,26 @@ class ProviderNotFoundError(SdlcError):
 
 class ProviderFactory:
     """Create LLM provider instances from configuration or presets."""
+
+    @staticmethod
+    def _resolve_api_key(api_key_env: str, provider_label: str) -> str:
+        """Resolve an API key from environment variable.
+
+        Returns the key value if set and non-empty.
+        Raises ConfigError if the environment variable is missing or empty,
+        unless the variable name is empty (e.g. for Ollama which needs no key).
+        """
+        # Empty env name means no key required (e.g. Ollama)
+        if not api_key_env:
+            return "no-key"
+        key = os.environ.get(api_key_env, "")
+        if not key:
+            raise ConfigError(
+                f"API key environment variable '{api_key_env}' is not set or empty. "
+                f"Set it with: export {api_key_env}=<your-key> "
+                f"(required for {provider_label})"
+            )
+        return key
 
     @staticmethod
     def create(config: LLMConfig) -> AnthropicProvider | OpenAIProvider | OpenAICompatibleProvider:
@@ -29,18 +49,22 @@ class ProviderFactory:
         - provider=<preset_id> -> lookup preset, create OpenAICompatibleProvider
         """
         provider_type = config.provider.lower().strip()
-        api_key = os.environ.get(config.api_key_env, "")
 
         # Check if it's a preset ID
         preset = get_preset(provider_type)
         if preset:
-            return ProviderFactory._from_preset(preset, api_key or "sk-placeholder", config.timeout)
+            api_key = ProviderFactory._resolve_api_key(
+                preset.api_key_env, preset.name
+            )
+            return ProviderFactory._from_preset(preset, api_key, config.timeout)
 
         # Standard providers
         if provider_type == "anthropic":
-            return AnthropicProvider(api_key=api_key or "sk-placeholder", timeout=int(config.timeout))
+            api_key = ProviderFactory._resolve_api_key(config.api_key_env, "Anthropic")
+            return AnthropicProvider(api_key=api_key, timeout=int(config.timeout))
         elif provider_type == "openai":
-            return OpenAIProvider(api_key=api_key or "sk-placeholder", timeout=int(config.timeout))
+            api_key = ProviderFactory._resolve_api_key(config.api_key_env, "OpenAI")
+            return OpenAIProvider(api_key=api_key, timeout=int(config.timeout))
         elif provider_type == "openai-compatible":
             if not config.base_url:
                 raise ProviderNotFoundError(
@@ -48,16 +72,20 @@ class ProviderFactory:
                     "Use 'sdlc config set llm.base_url https://...' or "
                     "'sdlc config set llm.provider <preset_id>'"
                 )
+            api_key = ProviderFactory._resolve_api_key(config.api_key_env, "OpenAI-compatible")
             return OpenAICompatibleProvider(
-                api_key=api_key or "sk-placeholder",
+                api_key=api_key,
                 base_url=config.base_url,
                 timeout=int(config.timeout),
             )
         else:
             # Unknown provider - try as openai-compatible with base_url
             if config.base_url:
+                api_key = ProviderFactory._resolve_api_key(
+                    config.api_key_env, provider_type
+                )
                 return OpenAICompatibleProvider(
-                    api_key=api_key or "sk-placeholder",
+                    api_key=api_key,
                     base_url=config.base_url,
                     timeout=int(config.timeout),
                     provider_name=provider_type,
@@ -109,7 +137,7 @@ class ProviderFactory:
             )
             try:
                 return ProviderFactory.create(fb_config)
-            except ProviderNotFoundError:
+            except (ProviderNotFoundError, ConfigError):
                 return None
 
         # Auto-fallback: if primary is anthropic, fallback to openai; vice versa

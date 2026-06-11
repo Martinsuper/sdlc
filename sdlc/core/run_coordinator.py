@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import json
+import logging
 import time
 from typing import Any
 
@@ -9,7 +11,7 @@ from sdlc.audit import AuditEventType, AuditLogger
 from sdlc.core.entry_detector import EntryDetector
 from sdlc.core.models import PipelineResult
 from sdlc.core.pipeline_builder import PipelineBuilder
-from sdlc.gate import GateAction, GateEngine
+from sdlc.gate import GateAction, GateDecision, GateEngine
 from sdlc.kb.memory import MemoryL2
 from sdlc.llm.cost import CostTracker
 from sdlc.profile import ProfileRegistry
@@ -17,6 +19,11 @@ from sdlc.stage import StageCatalog, StageRunner
 from sdlc.stage.models import StageNode
 from sdlc.state import StateStore
 from sdlc.subagent import SubagentPool
+
+
+MAX_CONCURRENCY_CAP = 5
+
+logger = logging.getLogger(__name__)
 
 
 class RunCoordinator:
@@ -60,6 +67,15 @@ class RunCoordinator:
         concurrency: int = 1,
         **opts: Any,
     ) -> PipelineResult:
+        # --- Input validation (P1-输入验证) ---
+        if not input_text or not input_text.strip():
+            raise ValueError("input_text must not be empty or whitespace-only")
+        if concurrency < 1:
+            raise ValueError("concurrency must be >= 1")
+        if len(input_text) > 10000:
+            logger.warning("input_text exceeds 10000 chars, truncating to 10000")
+            input_text = input_text[:10000]
+
         entry = self.entry_detector.detect(input_text)
         self.audit.emit(
             AuditEventType.ENTRY_DETECTED,
@@ -91,49 +107,75 @@ class RunCoordinator:
 
         context = {"input": input_text, "severity": profile.severity, "pipeline_id": pipeline.id}
 
-        # Choose execution mode based on concurrency
-        if concurrency > 1:
-            stage_results = await self._run_pipeline_stages_concurrent(
-                pipeline.stages, pipeline.id, context, concurrency
-            )
-        else:
-            stage_results = await self.stage_runner.run_pipeline_stages(
-                pipeline.stages, pipeline.id, context
-            )
-
-        # Track costs if CostTracker is provided
-        total_cost = sum(r.get("cost_usd", 0.0) for r in stage_results)
-        if self.cost_tracker is not None:
-            for r in stage_results:
-                if r.get("cost_usd", 0.0) > 0:
-                    stage_def_id = r.get("stage_id", "")
-                    model = (self.catalog.has(stage_def_id) and self.catalog.get(stage_def_id).model) or "unknown"
-                    self.cost_tracker.record(
-                        model=model,
-                        input_tokens=0,
-                        output_tokens=0,
-                        cost_usd=r.get("cost_usd", 0.0),
-                    )
-            if self.cost_tracker.check_budget():
-                self.audit.emit(
-                    AuditEventType.COST_EXCEEDED,
-                    {
-                        "total_usd": self.cost_tracker.total_cost,
-                        "budget_usd": self.cost_tracker.max_budget,
-                        "pipeline_id": pipeline.id,
-                    },
-                    pipeline_id=pipeline.id,
+        try:
+            # Choose execution mode based on concurrency
+            if concurrency > 1:
+                stage_results = await self._run_pipeline_stages_concurrent(
+                    pipeline.stages, pipeline.id, context, concurrency
+                )
+            else:
+                stage_results = await self.stage_runner.run_pipeline_stages(
+                    pipeline.stages, pipeline.id, context
                 )
 
-        all_success = all(r["status"] == "SUCCESS" for r in stage_results)
-        has_failed = any(r["status"] == "FAILED" for r in stage_results)
+            # Track costs if CostTracker is provided
+            total_cost = sum(r.get("cost_usd", 0.0) for r in stage_results)
+            if self.cost_tracker is not None:
+                for r in stage_results:
+                    if r.get("cost_usd", 0.0) > 0:
+                        stage_def_id = r.get("stage_id", "")
+                        model = (self.catalog.has(stage_def_id) and self.catalog.get(stage_def_id).model) or "unknown"
+                        self.cost_tracker.record(
+                            model=model,
+                            input_tokens=0,
+                            output_tokens=0,
+                            cost_usd=r.get("cost_usd", 0.0),
+                        )
+                if self.cost_tracker.check_budget():
+                    self.audit.emit(
+                        AuditEventType.COST_EXCEEDED,
+                        {
+                            "total_usd": self.cost_tracker.total_cost,
+                            "budget_usd": self.cost_tracker.max_budget,
+                            "pipeline_id": pipeline.id,
+                        },
+                        pipeline_id=pipeline.id,
+                    )
 
-        if has_failed:
+            all_success = all(r["status"] == "SUCCESS" for r in stage_results)
+            has_failed = any(r["status"] == "FAILED" for r in stage_results)
+
+            if has_failed:
+                final_status = "failed"
+            elif all_success:
+                final_status = "completed"
+            else:
+                final_status = "paused"
+        except Exception as exc:
+            # P0-37: Pipeline exception state leak — mark as FAILED if still RUNNING
             final_status = "failed"
-        elif all_success:
-            final_status = "completed"
-        else:
-            final_status = "paused"
+            total_cost = 0.0
+            stage_results = []
+            meta_json = json.dinternal-monitorings({"error": str(exc), "error_type": type(exc).__name__})
+            self.state.save_pipeline(
+                pipeline_id=pipeline.id,
+                entry_kind=entry.kind.value,
+                profile_id=profile.id,
+                status="FAILED",
+                meta_json=meta_json,
+            )
+            self.audit.emit(
+                AuditEventType.PIPELINE_END,
+                {"id": pipeline.id, "status": "failed", "error": str(exc)},
+                pipeline_id=pipeline.id,
+            )
+            return PipelineResult(
+                pipeline_id=pipeline.id,
+                status="failed",
+                stage_results=stage_results,
+                total_cost_usd=total_cost,
+                error=str(exc),
+            )
 
         self.state.update_pipeline_status(pipeline.id, final_status.upper())
         self.audit.emit(
@@ -161,7 +203,7 @@ class RunCoordinator:
         Stages that have no unmet dependencies can run in parallel,
         respecting the concurrency limit. Per-stage timing is tracked.
         """
-        max_concurrency = min(concurrency, 3)  # Cap at 3
+        max_concurrency = min(concurrency, MAX_CONCURRENCY_CAP)
         semaphore = asyncio.Semaphore(max_concurrency)
 
         results: list[dict[str, Any]] = [None] * len(stage_nodes)  # type: ignore[list-item]
@@ -253,13 +295,24 @@ class RunCoordinator:
                 results[idx] = result
 
                 # Check for failure / gate block
+                # Normalize gate_decision to GateDecision object if it's a dict
                 gate_decision = result.get("gate_decision")
+                if gate_decision and isinstance(gate_decision, dict):
+                    try:
+                        gate_decision = GateDecision(
+                            gate_id=gate_decision.get("gate_id", ""),
+                            action=GateAction(gate_decision.get("action", "")),
+                            reason=gate_decision.get("reason", ""),
+                            reviewer=gate_decision.get("reviewer", ""),
+                            deadline=gate_decision.get("deadline", ""),
+                            metadata=gate_decision.get("metadata", {}),
+                        )
+                        result["gate_decision"] = gate_decision
+                    except (ValueError, KeyError):
+                        gate_decision = None
                 is_block = False
-                if gate_decision:
-                    if isinstance(gate_decision, dict):
-                        is_block = gate_decision.get("action") == GateAction.BLOCK
-                    else:
-                        is_block = getattr(gate_decision, "action", None) == GateAction.BLOCK
+                if gate_decision and isinstance(gate_decision, GateDecision):
+                    is_block = gate_decision.action == GateAction.BLOCK
 
                 if result["status"] == "SUCCESS" and not is_block:
                     completed_ids.add(result["stage_id"])
@@ -278,9 +331,11 @@ class RunCoordinator:
                             "duration_ms": 0,
                         }
                     pending.clear()
-                    # Cancel any still-running tasks
+                    # Cancel any still-running tasks and await their completion
                     for t in running:
                         t.cancel()
+                    if running:
+                        await asyncio.gather(*running, return_exceptions=True)
 
         # Fill any remaining None slots (shouldn't happen, but defensive)
         for i, r in enumerate(results):

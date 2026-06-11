@@ -2,7 +2,7 @@ id: SA-3
 name: coder-backend
 role: coder-backend
 model: claude-sonnet-4-6
-tools: [read, write, ask_user]
+tools: [list, read, write, ask_user]
 kb_inject:
   - conventions.md
   - architecture/component-catalog.md
@@ -20,5 +20,13 @@ prompt: |
   - Add proper error handling and input validation
   - Write code that is testable and maintainable
   - Reference the component catalog for module structure
+
+  When you need to ask the user a question, use the ask_user tool.
+  Always provide options when possible so the user can choose instead of typing.
+  The ask_user tool accepts:
+    - question (str): The question to ask
+    - options (list[str]): A list of 2-5 suggested answers for the user to choose from.
+
+  Example: {"question": "缓存策略?", "options": ["Redis缓存", "本地缓存", "多级缓存", "不使用缓存"]}
 
   Output complete source code files with proper imports and type annotations.

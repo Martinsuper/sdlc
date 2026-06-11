@@ -86,46 +86,36 @@ def _fix_lint(context: dict[str, Any]) -> dict[str, Any]:
 
 
 def _create_pr(context: dict[str, Any]) -> dict[str, Any]:
-    """Create a pull request based on context."""
-    title = context.get("title", "Automated PR")
-    body = context.get("body", "")
-    branch = context.get("branch", "main")
-    return {
-        "skill": "create_pr",
-        "pr_url": "https://github.com/example/repo/pull/1",
-        "title": title,
-        "body": body,
-        "branch": branch,
-        "status": "ok",
-    }
+    """Create a pull request based on context.
+
+    .. note:: This is a stub implementation. Real PR creation requires
+        integration with a VCS hosting service (GitHub, GitLab, etc.).
+    """
+    raise NotImplementedError(
+        "create_pr is a stub -- integrate with a VCS hosting service to implement"
+    )
 
 
 def _review_pr(context: dict[str, Any]) -> dict[str, Any]:
-    """Review a pull request and return feedback."""
-    pr_url = context.get("pr_url", "")
-    diff = context.get("diff", "")
-    return {
-        "skill": "review_pr",
-        "pr_url": pr_url,
-        "feedback": f"Review of {len(diff)} characters of diff",
-        "issues": [],
-        "status": "ok",
-    }
+    """Review a pull request and return feedback.
+
+    .. note:: This is a stub implementation. Real PR review requires
+        integration with a VCS hosting service and/or LLM-based review.
+    """
+    raise NotImplementedError(
+        "review_pr is a stub -- integrate with a VCS hosting service to implement"
+    )
 
 
 def _deploy_check(context: dict[str, Any]) -> dict[str, Any]:
-    """Run deployment readiness checks."""
-    env = context.get("env", "production")
-    checks = context.get("checks", ["tests_pass", "build_ok", "no_secrets"])
-    results = {check: True for check in checks}
-    ready = all(results.values())
-    return {
-        "skill": "deploy_check",
-        "env": env,
-        "results": results,
-        "ready": ready,
-        "status": "ok",
-    }
+    """Run deployment readiness checks.
+
+    .. note:: This is a stub implementation. Real deploy checks require
+        integration with CI/CD systems and environment verification.
+    """
+    raise NotImplementedError(
+        "deploy_check is a stub -- integrate with CI/CD to implement"
+    )
 
 
 # ---------------------------------------------------------------------------

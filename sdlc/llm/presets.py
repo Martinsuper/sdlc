@@ -53,7 +53,7 @@ PRESETS: list[ProviderPreset] = [
         id="ollama",
         name="Ollama (本地)",
         base_url="http://localhost:11434/v1",
-        api_key_env="OLLAMA_API_KEY",
+        api_key_env="",
         default_model="llama3",
         description="Ollama 本地模型服务",
     ),

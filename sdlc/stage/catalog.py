@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 from sdlc.stage.models import StageDef
 from sdlc.utils.exceptions import SdlcError
 from sdlc.utils.yaml_io import load_yaml
+
+logger = logging.getLogger(__name__)
 
 
 class StageNotFoundError(SdlcError):
@@ -22,6 +25,11 @@ class StageCatalog:
         self.load_builtin()
 
     def register(self, stage_def: StageDef) -> None:
+        if stage_def.id in self._stages:
+            logger.warning(
+                "Stage '%s' already registered; overriding with new definition",
+                stage_def.id,
+            )
         self._stages[stage_def.id] = stage_def
 
     def get(self, stage_id: str) -> StageDef:
@@ -46,6 +54,7 @@ class StageCatalog:
             return None
         stage_id = data.get("id", "")
         if not stage_id:
+            logger.warning("Skipping stage in %s: missing 'id' field", path)
             return None
         retry = data.get("retry", {})
         stage = StageDef(
@@ -109,4 +118,10 @@ class StageCatalog:
             if stage.id:
                 self.register(stage)
                 count += 1
+            else:
+                logger.warning(
+                    "Skipping stage entry in %s: missing 'id' field (name=%s)",
+                    path,
+                    item.get("name", "<unknown>"),
+                )
         return count

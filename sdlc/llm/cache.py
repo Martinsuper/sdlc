@@ -1,20 +1,25 @@
 """LLM response cache with semantic similarity matching and hit-rate metrics.
 
 Performance improvements:
-- Semantic similarity: normalize whitespace and lowercase for broader cache hits
+- Semantic similarity: normalize whitespace for broader cache hits
 - Hit-rate tracking: counts total lookups, hits, and misses for metrics reporting
+- LRU eviction: evicts least-recently-used entries when cache exceeds size limit
 """
 
 import hashlib
 import json
+import logging
 import re
 import sqlite3
+import threading
 import time
 from pathlib import Path
 from typing import Any
 
 from sdlc.llm.models import CompletionRequest, CompletionResponse
 from sdlc.utils.paths import ensure_dir
+
+logger = logging.getLogger(__name__)
 
 
 class LLMCache:
@@ -24,6 +29,7 @@ class LLMCache:
         self.ttl = ttl_seconds
         self.max_size = max_size_mb * 1024 * 1024
         self.db = sqlite3.connect(str(db_path))
+        self._lock = threading.Lock()
         self._init_schema()
         # Hit-rate tracking (in-memory counters for the current process)
         self._total_lookups: int = 0
@@ -41,30 +47,32 @@ class LLMCache:
             hit_count INTEGER DEFAULT 0
         );
         CREATE INDEX IF NOT EXISTS idx_cache_created ON llm_cache(created_at);
+        CREATE INDEX IF NOT EXISTS idx_cache_last_hit ON llm_cache(last_hit_at);
         """)
 
     def _normalize_content(self, text: str) -> str:
         """Normalize text for semantic similarity matching.
 
         - Collapse consecutive whitespace to single space
-        - Lowercase
         - Strip leading/trailing whitespace
 
-        This allows cache hits when only whitespace or casing differs,
-        significantly improving hit rate for LLM prompts that are
-        semantically identical but formatted differently.
+        Note: We intentionally do NOT lowercase because casing is meaningful
+        in programming contexts (e.g. variable names, class names, API paths).
+        Whitespace collapse is retained as it improves hit rate without
+        changing semantic meaning.
         """
         # Collapse all whitespace (spaces, tabs, newlines) to single space
         normalized = re.sub(r"\s+", " ", text)
-        return normalized.strip().lower()
+        return normalized.strip()
 
     def _fingerprint(self, req: CompletionRequest) -> str:
         """Generate a fingerprint for a request, with semantic normalization.
 
         The fingerprint is based on the model, system prompt, and message
-        content. Temperature and metadata are excluded as they don't affect
-        the semantic meaning. Message content is normalized for whitespace
-        and casing to improve cache hit rate.
+        content. Temperature is included when set (different temperatures
+        produce different outputs). Metadata is excluded as it doesn't affect
+        the output. Message content is normalized for whitespace to improve
+        cache hit rate.
         """
         # Build a normalized representation
         normalized_parts: dict[str, Any] = {"model": req.model}
@@ -90,83 +98,95 @@ class LLMCache:
 
         normalized_parts["messages"] = normalized_messages
         normalized_parts["max_tokens"] = req.max_tokens
+        if req.temperature is not None:
+            normalized_parts["temperature"] = req.temperature
         normalized_parts["stop_sequences"] = sorted(req.stop_sequences)
 
         content = json.dinternal-monitorings(normalized_parts, sort_keys=True, default=str)
         return hashlib.sha256(content.encode()).hexdigest()
 
     async def get(self, req: CompletionRequest) -> CompletionResponse | None:
-        self._total_lookups += 1
-        fp = self._fingerprint(req)
-        row = self.db.execute(
-            "SELECT response_json, created_at FROM llm_cache WHERE fingerprint=?",
-            (fp,),
-        ).fetchone()
-        if not row:
-            return None
-        response_json, created_at = row
-        if time.time() - created_at > self.ttl:
-            self.db.execute("DELETE FROM llm_cache WHERE fingerprint=?", (fp,))
-            return None
-        self._total_hits += 1
-        self.db.execute(
-            "UPDATE llm_cache SET last_hit_at=?, hit_count=hit_count+1 WHERE fingerprint=?",
-            (time.time(), fp),
-        )
-        self.db.commit()
-        try:
-            return CompletionResponse.model_validate_json(response_json)
-        except Exception:
-            return None
+        with self._lock:
+            self._total_lookups += 1
+            fp = self._fingerprint(req)
+            row = self.db.execute(
+                "SELECT response_json, created_at FROM llm_cache WHERE fingerprint=?",
+                (fp,),
+            ).fetchone()
+            if not row:
+                return None
+            response_json, created_at = row
+            if time.time() - created_at > self.ttl:
+                self.db.execute("DELETE FROM llm_cache WHERE fingerprint=?", (fp,))
+                return None
+            self._total_hits += 1
+            self.db.execute(
+                "UPDATE llm_cache SET last_hit_at=?, hit_count=hit_count+1 WHERE fingerprint=?",
+                (time.time(), fp),
+            )
+            self.db.commit()
+            try:
+                return CompletionResponse.model_validate_json(response_json)
+            except Exception:
+                return None
 
     async def put(self, req: CompletionRequest, resp: CompletionResponse) -> None:
-        fp = self._fingerprint(req)
-        self.db.execute(
-            "INSERT OR REPLACE INTO llm_cache (fingerprint, model, request_json, response_json, created_at, last_hit_at, hit_count) VALUES (?,?,?,?,?,?,0)",
-            (
-                fp,
-                resp.model,
-                req.model_dinternal-monitoring_json(),
-                resp.model_dinternal-monitoring_json(),
-                time.time(),
-                time.time(),
-            ),
-        )
-        self.db.commit()
-        self._maybe_evict()
+        with self._lock:
+            fp = self._fingerprint(req)
+            self.db.execute(
+                "INSERT OR REPLACE INTO llm_cache (fingerprint, model, request_json, response_json, created_at, last_hit_at, hit_count) VALUES (?,?,?,?,?,?,0)",
+                (
+                    fp,
+                    resp.model,
+                    req.model_dinternal-monitoring_json(),
+                    resp.model_dinternal-monitoring_json(),
+                    time.time(),
+                    time.time(),
+                ),
+            )
+            self.db.commit()
+            self._maybe_evict()
 
     def _maybe_evict(self) -> None:
+        """Evict least-recently-used entries when cache exceeds size limit.
+
+        Uses last_hit_at (LRU) instead of created_at to keep frequently-used
+        entries alive. Evicts the oldest 25% of entries by last access time.
+        """
         try:
             row = self.db.execute(
                 "SELECT COALESCE(SUM(LENGTH(request_json) + LENGTH(response_json)), 0) FROM llm_cache"
             ).fetchone()
             size = row[0] if row else 0
             if size > self.max_size:
+                # Use last_hit_at for LRU eviction (not created_at)
                 cutoff = self.db.execute(
-                    "SELECT created_at FROM llm_cache ORDER BY created_at ASC LIMIT 1 OFFSET (SELECT COUNT(*) / 4 FROM llm_cache)"
+                    "SELECT last_hit_at FROM llm_cache ORDER BY last_hit_at ASC LIMIT 1 OFFSET (SELECT COUNT(*) / 4 FROM llm_cache)"
                 ).fetchone()
                 if cutoff:
-                    self.db.execute("DELETE FROM llm_cache WHERE created_at <= ?", (cutoff[0],))
+                    self.db.execute("DELETE FROM llm_cache WHERE last_hit_at <= ?", (cutoff[0],))
                     self.db.commit()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning("Cache eviction failed: %s", e)
 
     def invalidate(self, prefix: str | None = None) -> int:
-        if prefix:
-            cursor = self.db.execute("DELETE FROM llm_cache WHERE model LIKE ?", (prefix + "%",))
-        else:
-            cursor = self.db.execute("DELETE FROM llm_cache")
-        self.db.commit()
-        return cursor.rowcount
+        with self._lock:
+            if prefix:
+                cursor = self.db.execute("DELETE FROM llm_cache WHERE model LIKE ?", (prefix + "%",))
+            else:
+                cursor = self.db.execute("DELETE FROM llm_cache")
+            self.db.commit()
+            return cursor.rowcount
 
     def stats(self) -> dict[str, Any]:
         """Return cache statistics including process-level hit rate tracking."""
-        row = self.db.execute(
-            "SELECT COUNT(*) as entries, SUM(hit_count) as total_hits, COALESCE(SUM(CASE WHEN hit_count > 0 THEN 1 ELSE 0 END), 0) as hit_entries FROM llm_cache"
-        ).fetchone()
-        entries = row[0] if row else 0
-        total_hits = row[1] if row and row[1] else 0
-        hit_entries = row[2] if row else 0
+        with self._lock:
+            row = self.db.execute(
+                "SELECT COUNT(*) as entries, SUM(hit_count) as total_hits, COALESCE(SUM(CASE WHEN hit_count > 0 THEN 1 ELSE 0 END), 0) as hit_entries FROM llm_cache"
+            ).fetchone()
+            entries = row[0] if row else 0
+            total_hits = row[1] if row and row[1] else 0
+            hit_entries = row[2] if row else 0
         return {
             "entries": entries,
             "total_hits": total_hits,

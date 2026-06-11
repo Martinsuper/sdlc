@@ -2,24 +2,87 @@
 
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
+
+
+# Known git flags that are safe to pass as arguments.
+_KNOWN_GIT_FLAGS = frozenset({
+    "--abbrev-ref",
+    "--staged",
+    "--porcelain",
+    "--oneline",
+    "-n",
+    "-1",
+    "-2",
+    "-3",
+    "-4",
+    "-5",
+    "-6",
+    "-7",
+    "-8",
+    "-9",
+    "-10",
+    "-20",
+    "-50",
+    "--all",
+    "--quiet",
+    "--verbose",
+    "--force",
+    "--dry-run",
+    "--no-verify",
+    "--signoff",
+    "-m",
+    "-a",
+    "-S",
+    "-b",
+    "-d",
+    "-r",
+    "-f",
+    "-p",
+})
 
 
 class GitClient:
     """High-level wrapper around common git commands."""
 
-    def __init__(self, cwd: Path | None = None) -> None:
-        self.cwd = cwd
+    DEFAULT_TIMEOUT = 60
 
-    def _run(self, args: list[str], check: bool = True) -> subprocess.CompletedProcess[str]:
+    def __init__(self, cwd: Path | None = None, timeout: int = DEFAULT_TIMEOUT) -> None:
+        self.cwd = cwd
+        self._timeout = timeout
+
+    def _validate_args(self, args: list[str]) -> None:
+        """Reject suspicious arguments that start with ``-`` but are not known flags.
+
+        Short numeric flags like ``-5`` are allowed for ``git log -5`` etc.
+        """
+        for arg in args:
+            if arg.startswith("-") and arg not in _KNOWN_GIT_FLAGS:
+                # Allow short numeric flags like -5, -10, -20
+                if re.match(r"^-\d+$", arg):
+                    continue
+                raise ValueError(
+                    f"Unrecognized git flag rejected for safety: {arg}"
+                )
+
+    def _run(
+        self,
+        args: list[str],
+        check: bool = True,
+        timeout: int | None = None,
+    ) -> subprocess.CompletedProcess[str]:
         """Run a git subprocess command."""
+        self._validate_args(args)
+        effective_timeout = timeout if timeout is not None else self._timeout
         return subprocess.run(
             ["git", *args],
             capture_output=True,
             text=True,
             cwd=self.cwd,
             check=check,
+            timeout=effective_timeout,
         )
 
     def current_branch(self) -> str:

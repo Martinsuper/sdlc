@@ -1,5 +1,21 @@
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Any
+
+_VALID_BACKOFF_STRATEGIES = ("exponential", "linear", "fixed")
+
+
+class PipelineStatus(StrEnum):
+    """Standardized status values for Pipeline and StageNode."""
+
+    NEW = "NEW"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    PAUSED = "PAUSED"
+    SKIPPED = "SKIPPED"
+    BLOCKED = "BLOCKED"
+    PENDING = "PENDING"
 
 
 @dataclass
@@ -19,10 +35,17 @@ class StageDef:
     retry_backoff: str = "exponential"
     gates: list[dict[str, Any]] = field(default_factory=list)
 
+    def __post_init__(self) -> None:
+        if self.retry_backoff not in _VALID_BACKOFF_STRATEGIES:
+            raise ValueError(
+                f"Invalid retry_backoff '{self.retry_backoff}'; "
+                f"must be one of {_VALID_BACKOFF_STRATEGIES}"
+            )
+
 
 @dataclass
 class StageNode:
     id: str
     stage_def: StageDef | None = None
     depends_on: list[str] = field(default_factory=list)
-    status: str = "PENDING"
+    status: str = PipelineStatus.PENDING

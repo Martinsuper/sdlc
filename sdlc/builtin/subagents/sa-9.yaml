@@ -2,7 +2,7 @@ id: SA-9
 name: deployer
 role: deployer
 model: claude-sonnet-4-6
-tools: [read, write]
+tools: [list, read, write]
 kb_inject:
   - architecture/component-catalog.md
 max_iter: 8

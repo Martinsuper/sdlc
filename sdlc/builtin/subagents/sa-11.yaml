@@ -2,7 +2,7 @@ id: SA-11
 name: docs-writer
 role: docs-writer
 model: claude-sonnet-4-6
-tools: [read, write]
+tools: [list, read, write]
 kb_inject: []
 max_iter: 5
 prompt: |

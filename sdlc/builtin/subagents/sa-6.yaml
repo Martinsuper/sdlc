@@ -2,7 +2,7 @@ id: SA-6
 name: reviewer
 role: reviewer
 model: claude-opus-4-7
-tools: [read]
+tools: [list, read]
 kb_inject:
   - rules/MUST.yaml
   - standards/coding-style.md

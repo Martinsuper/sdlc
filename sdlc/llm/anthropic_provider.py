@@ -1,3 +1,4 @@
+import logging
 import time
 from collections.abc import AsyncIterator
 from typing import Any, ClassVar
@@ -13,6 +14,8 @@ from sdlc.llm.models import (
     Usage,
 )
 from sdlc.utils.exceptions import LLMError
+
+logger = logging.getLogger(__name__)
 
 
 class LLMRateLimitError(LLMError):
@@ -73,17 +76,55 @@ class AnthropicProvider:
             raise LLMError(str(e)) from e
 
     async def stream(self, req: CompletionRequest) -> AsyncIterator[str]:
-        async with self.client.messages.stream(
-            model=req.model,
-            max_tokens=req.max_tokens,
-            messages=[m.model_dinternal-monitoring() for m in req.messages if m.role != Role.SYSTEM],  # type: ignore[misc]
-            system=req.system,  # type: ignore[arg-type]
-        ) as stream:
-            async for text in stream.text_stream:
-                yield text
+        try:
+            messages = [m for m in req.messages if m.role != Role.SYSTEM]
+            raw_msgs = []
+            for m in messages:
+                msg_dict: dict[str, Any] = {"role": m.role.value}
+                if isinstance(m.content, str):
+                    msg_dict["content"] = m.content
+                else:
+                    msg_dict["content"] = [b.model_dinternal-monitoring(exclude_none=True) for b in m.content]
+                if m.tool_call_id:
+                    msg_dict["tool_call_id"] = m.tool_call_id
+                if m.name:
+                    msg_dict["name"] = m.name
+                raw_msgs.append(msg_dict)
+
+            kwargs: dict[str, Any] = {
+                "model": req.model,
+                "max_tokens": req.max_tokens,
+                "messages": raw_msgs,
+            }
+            if req.temperature is not None:
+                kwargs["temperature"] = req.temperature
+            if req.system:
+                kwargs["system"] = req.system
+            if req.stop_sequences:
+                kwargs["stop_sequences"] = req.stop_sequences
+            tools_param = [t.model_dinternal-monitoring() for t in req.tools] or None
+            if tools_param:
+                kwargs["tools"] = tools_param
+
+            async with self.client.messages.stream(**kwargs) as stream:
+                async for text in stream.text_stream:
+                    yield text
+        except anthropic.RateLimitError as e:
+            raise LLMRateLimitError(str(e)) from e
+        except anthropic.APITimeoutError as e:
+            raise LLMTimeoutError(str(e)) from e
+        except anthropic.APIError as e:
+            raise LLMError(str(e)) from e
 
     def model_info(self, model: str) -> ModelInfo:
-        pricing = self.PRICING.get(model, {"in": 0.0, "out": 0.0})
+        pricing = self.PRICING.get(model)
+        if pricing is None:
+            logger.warning(
+                "No pricing data for model '%s'; cost_usd will be 0. "
+                "Consider updating PRICING dict or releasing a new version.",
+                model,
+            )
+            pricing = {"in": 0.0, "out": 0.0}
         return ModelInfo(
             name=model,
             provider="anthropic",
@@ -94,7 +135,14 @@ class AnthropicProvider:
         )
 
     def _to_response(self, raw: Any, start: float) -> CompletionResponse:
-        pricing = self.PRICING.get(raw.model, {"in": 0.0, "out": 0.0})
+        pricing = self.PRICING.get(raw.model)
+        if pricing is None:
+            logger.warning(
+                "No pricing data for model '%s'; cost_usd will be 0. "
+                "Consider updating PRICING dict or releasing a new version.",
+                raw.model,
+            )
+            pricing = {"in": 0.0, "out": 0.0}
         usage = raw.usage
         cost = (
             usage.input_tokens * pricing["in"] + usage.output_tokens * pricing["out"]

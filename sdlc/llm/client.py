@@ -47,21 +47,26 @@ class MultiLLMClient:
 
     async def complete(self, req: CompletionRequest) -> CompletionResponse:
         actual_model = self.router.route(req)
-        if actual_model:
-            req.model = actual_model
+        routed_req = req.model_copy(update={"model": actual_model}) if actual_model else req
         try:
-            return await self.primary.complete(req)
+            return await self.primary.complete(routed_req)
         except (LLMRateLimitError, LLMTimeoutError):
             if self.fallback is not None:
-                return await self.fallback.complete(req)
+                return await self.fallback.complete(routed_req)
             raise
 
     async def stream(self, req: CompletionRequest) -> AsyncIterator[str]:
         actual_model = self.router.route(req)
-        if actual_model:
-            req.model = actual_model
-        async for chunk in self.primary.stream(req):
-            yield chunk
+        routed_req = req.model_copy(update={"model": actual_model}) if actual_model else req
+        try:
+            async for chunk in self.primary.stream(routed_req):
+                yield chunk
+        except (LLMRateLimitError, LLMTimeoutError):
+            if self.fallback is not None:
+                async for chunk in self.fallback.stream(routed_req):
+                    yield chunk
+            else:
+                raise
 
     def model_info(self, model: str) -> ModelInfo:
         try:

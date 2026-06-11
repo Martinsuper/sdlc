@@ -39,6 +39,7 @@ import click
 @click.option("--timeout", type=int, help="Global timeout in seconds")
 @click.option("--tag", multiple=True, help="Custom tags KEY=VAL")
 @click.option("-c", "--concurrency", type=int, default=1, help="Max concurrent stages (1-3)")
+@click.option("-v", "--verbose", is_flag=True, help="Show full traceback on errors")
 def run(
     input,
     profile,
@@ -57,6 +58,7 @@ def run(
     timeout,
     tag,
     concurrency,
+    verbose,
 ):
     """Execute an SDLC pipeline."""
     import asyncio
@@ -71,13 +73,26 @@ def run(
         click.echo("Error: Please provide input (text, @file, or - for stdin)", err=True)
         raise SystemExit(1)
 
+    # Maximum input file size: 1 MB
+    _MAX_INPUT_FILE_SIZE = 1 * 1024 * 1024
+
     raw_input = input
     if input.startswith("@"):
         path = Path(input[1:])
         if not path.exists():
             click.echo(f"File not found: {path}", err=True)
             raise SystemExit(1)
-        raw_input = path.read_text()
+        file_size = path.stat().st_size
+        if file_size > _MAX_INPUT_FILE_SIZE:
+            click.echo(
+                f"Warning: Input file is {file_size / 1024:.0f} KB, "
+                f"exceeds recommended limit of {_MAX_INPUT_FILE_SIZE // 1024} KB. "
+                f"Truncating.",
+                err=True,
+            )
+            raw_input = path.read_text(encoding="utf-8")[:_MAX_INPUT_FILE_SIZE]
+        else:
+            raw_input = path.read_text()
     elif input == "-":
         raw_input = sys.stdin.read()
 
@@ -92,6 +107,12 @@ def run(
     click.echo(f"Entry detected: {entry.kind.value}")
     click.echo(f"  Input: {raw_input[:80]}{'...' if len(raw_input) > 80 else ''}")
     click.echo(f"  Confidence: {entry.confidence:.2f}")
+    if entry.confidence < 0.5:
+        click.echo(
+            f"  Warning: Low confidence detection ({entry.confidence:.2f}), "
+            f"profile may not match your intent",
+            err=True,
+        )
     click.echo(f"  Profile: {profile}")
     if severity:
         click.echo(f"  Severity: {severity}")
@@ -119,6 +140,8 @@ def run(
                 profile_id=profile if profile != "auto" else None,
                 adapter_id=adapter,
                 concurrency=concurrency,
+                overall_timeout=timeout,
+                resume_on_fail=resume_on_fail,
             )
         )
 
@@ -133,4 +156,7 @@ def run(
         raise
     except Exception as e:
         click.echo(f"\nError: {e}", err=True)
+        if verbose:
+            import traceback
+            traceback.print_exc()
         raise SystemExit(1) from None

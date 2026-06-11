@@ -142,7 +142,37 @@ class InitDetector:
 
     def _derive_profile(self, info: ProjectInfo) -> str:
         """Map detected info to profile ID."""
-        return "new-feature"  # Default, can be refined
+        fw = info.framework.lower() if info.framework else ""
+        lang = info.language.lower()
+
+        # Framework-specific profiles
+        fw_map = {
+            "django": "new-feature",
+            "flask": "new-feature",
+            "fastapi": "new-feature",
+            "spring-boot": "new-feature",
+            "nestjs": "new-feature",
+            "nextjs": "frontend",
+            "nuxt": "frontend",
+            "gin": "new-feature",
+        }
+        if fw in fw_map:
+            return fw_map[fw]
+
+        # Language-based fallback
+        lang_map = {
+            "python": "new-feature",
+            "java": "new-feature",
+            "javascript": "new-feature",
+            "typescript": "new-feature",
+            "go": "new-feature",
+            "rust": "new-feature",
+            "hcl": "infra",
+            "kotlin": "new-feature",
+            "swift": "new-feature",
+            "dart": "new-feature",
+        }
+        return lang_map.get(lang, "new-feature")
 
     def generate_config(self, info: ProjectInfo, project_dir: Path) -> dict[str, Any]:
         """Generate .sdlc/config.yaml content from detected info."""

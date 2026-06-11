@@ -1,9 +1,14 @@
+import logging
 from pathlib import Path
 from typing import Any
+
+from ruamel.yaml.error import YAMLError
 
 from sdlc.utils.config import SdlcConfig
 from sdlc.utils.paths import ensure_dir, project_root, sdlc_home
 from sdlc.utils.yaml_io import load_yaml, save_yaml
+
+logger = logging.getLogger(__name__)
 
 
 def _deep_merge(base: dict[str, Any], override: dict[str, Any]) -> dict[str, Any]:
@@ -26,7 +31,17 @@ def _load_yaml_config(path: Path) -> dict[str, Any]:
         if not isinstance(data, dict):
             return {}
         return data
+    except FileNotFoundError:
+        # File not found is normal -- no project/user config yet
+        return {}
+    except PermissionError:
+        logger.warning("Permission denied reading config file: %s", path)
+        return {}
+    except YAMLError:
+        logger.warning("YAML syntax error in config file: %s", path)
+        return {}
     except Exception:
+        logger.warning("Unexpected error reading config file: %s", path)
         return {}
 
 

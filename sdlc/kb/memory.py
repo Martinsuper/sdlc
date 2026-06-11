@@ -5,6 +5,7 @@ After each stage run, extract learnings and update the project KB.
 from __future__ import annotations
 
 import json
+import uuid
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -38,7 +39,8 @@ class MemoryL2:
         memory_dir.mkdir(parents=True, exist_ok=True)
 
         ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
-        filename = f"{stage_id}-{ts}.json"
+        short_id = uuid.uuid4().hex[:6]
+        filename = f"{stage_id}-{ts}-{short_id}.json"
         filepath = memory_dir / filename
 
         record = {
@@ -47,7 +49,10 @@ class MemoryL2:
             "timestamp": ts,
             "learnings": entries,
         }
-        filepath.write_text(json.dinternal-monitorings(record, indent=2, ensure_ascii=False))
+        # Atomic write: write to temp file then rename
+        tmp = filepath.with_suffix(".tmp")
+        tmp.write_text(json.dinternal-monitorings(record, indent=2, ensure_ascii=False))
+        tmp.rename(filepath)
         return len(entries)
 
     def _extract_learnings(

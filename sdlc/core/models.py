@@ -3,7 +3,7 @@ from enum import StrEnum
 from typing import Any
 
 from sdlc.profile.models import ProfileDef
-from sdlc.stage.models import StageNode
+from sdlc.stage.models import PipelineStatus, StageNode
 
 
 class EntryKind(StrEnum):
@@ -36,7 +36,7 @@ class Pipeline:
     entry: EntryPoint
     profile: ProfileDef | None = None
     stages: list[StageNode] = field(default_factory=list)
-    status: str = "NEW"
+    status: str = PipelineStatus.NEW
     created_at: str = ""
     updated_at: str = ""
 

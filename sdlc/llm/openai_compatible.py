@@ -5,6 +5,7 @@ OpenAI-compatible API endpoint.
 """
 from __future__ import annotations
 
+import logging
 import time
 from collections.abc import AsyncIterator
 from typing import Any, ClassVar
@@ -20,6 +21,8 @@ from sdlc.llm.models import (
     Usage,
 )
 from sdlc.utils.exceptions import LLMError
+
+logger = logging.getLogger(__name__)
 
 
 class OpenAICompatibleProvider:
@@ -79,7 +82,7 @@ class OpenAICompatibleProvider:
                 "model": req.model,
                 "messages": oai_msgs,
                 "max_tokens": req.max_tokens,
-                "temperature": req.temperature if req.temperature else None,
+                "temperature": req.temperature if req.temperature is not None else None,
             }
             if req.stop_sequences:
                 kwargs["stop"] = req.stop_sequences
@@ -94,18 +97,33 @@ class OpenAICompatibleProvider:
             raise LLMError(str(e)) from e
 
     async def stream(self, req: CompletionRequest) -> AsyncIterator[str]:
-        oai_msgs = self._convert_messages(req)
-        stream = await self.client.chat.completions.create(
-            model=req.model,
-            messages=oai_msgs,  # type: ignore[arg-type]
-            stream=True,
-        )
-        async for chunk in stream:  # type: ignore[union-attr]
-            if chunk.choices and chunk.choices[0].delta.content:
-                yield chunk.choices[0].delta.content
+        try:
+            oai_msgs = self._convert_messages(req)
+            stream = await self.client.chat.completions.create(
+                model=req.model,
+                messages=oai_msgs,  # type: ignore[arg-type]
+                stream=True,
+            )
+            async for chunk in stream:  # type: ignore[union-attr]
+                if chunk.choices and chunk.choices[0].delta.content:
+                    yield chunk.choices[0].delta.content
+        except openai.RateLimitError as e:
+            raise LLMRateLimitError(str(e)) from e
+        except openai.APITimeoutError as e:
+            raise LLMTimeoutError(str(e)) from e
+        except openai.APIError as e:
+            raise LLMError(str(e)) from e
 
     def model_info(self, model: str) -> ModelInfo:
-        pricing = self.PRICING.get(model, {"in": 0.0, "out": 0.0})
+        pricing = self.PRICING.get(model)
+        if pricing is None:
+            logger.warning(
+                "No pricing data for model '%s' (provider=%s); cost_usd will be 0. "
+                "Consider updating PRICING dict or releasing a new version.",
+                model,
+                self.provider_name,
+            )
+            pricing = {"in": 0.0, "out": 0.0}
         # Estimate context window based on model name
         max_context = 128000
         if "128k" in model.lower():
@@ -144,7 +162,15 @@ class OpenAICompatibleProvider:
     def _to_response(self, raw: Any, start: float) -> CompletionResponse:
         choice = raw.choices[0] if raw.choices else None
         content_text = choice.message.content if choice else ""
-        pricing = self.PRICING.get(raw.model, {"in": 0.0, "out": 0.0})
+        pricing = self.PRICING.get(raw.model)
+        if pricing is None:
+            logger.warning(
+                "No pricing data for model '%s' (provider=%s); cost_usd will be 0. "
+                "Consider updating PRICING dict or releasing a new version.",
+                raw.model,
+                self.provider_name,
+            )
+            pricing = {"in": 0.0, "out": 0.0}
         usage = raw.usage
         cost = 0.0
         if usage:

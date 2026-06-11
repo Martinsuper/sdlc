@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass
 
 from sdlc.adapter import AdapterRegistry, register_dongboot
@@ -10,15 +11,19 @@ from sdlc.core import EntryDetector, PipelineBuilder, RunCoordinator
 from sdlc.gate import GateEngine
 from sdlc.kb.memory import MemoryL2
 from sdlc.llm import CostTracker, MultiLLMClient
+from sdlc.llm.client import ModelRouter
+from sdlc.llm.provider_factory import ProviderFactory
 from sdlc.profile import ProfileRegistry
 from sdlc.profile import register_builtins as register_profiles
 from sdlc.stage import StageCatalog
 from sdlc.state import StateStore
 from sdlc.subagent import SubagentPool, SubagentRegistry
 from sdlc.subagent import register_builtins as register_subagents
-from sdlc.utils.config import SdlcConfig
+from sdlc.utils.config import LLMConfig, SdlcConfig
 from sdlc.utils.config_loader import load_config
 from sdlc.utils.paths import project_root, sdlc_home
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -79,6 +84,25 @@ def _register_all_adapters(registry: AdapterRegistry) -> None:
     register_rust_axum(registry)
 
 
+def build_llm_client(config: LLMConfig | SdlcConfig) -> MultiLLMClient:
+    """Build a MultiLLMClient from configuration.
+
+    This is the single, canonical place to construct an LLM client so that
+    init_cmd and other callers do not duplicate the provider/router assembly
+    logic.
+    """
+    llm_config = config.llm if isinstance(config, SdlcConfig) else config
+
+    primary = ProviderFactory.create(llm_config)
+    fallback = ProviderFactory.create_fallback(llm_config)
+
+    router = ModelRouter(
+        provider_type=llm_config.provider,
+        default_model=llm_config.model,
+    )
+    return MultiLLMClient(primary=primary, fallback=fallback, router=router)
+
+
 def build_deps(config: SdlcConfig | None = None) -> DependencyContainer:
     """Assemble all dependencies as singletons."""
     if config is None:
@@ -103,18 +127,8 @@ def build_deps(config: SdlcConfig | None = None) -> DependencyContainer:
     sub_registry = SubagentRegistry()
     register_subagents(sub_registry)
 
-    # Build LLM providers via factory
-    from sdlc.llm.client import ModelRouter
-    from sdlc.llm.provider_factory import ProviderFactory
-
-    primary = ProviderFactory.create(config.llm)
-    fallback = ProviderFactory.create_fallback(config.llm)
-
-    router = ModelRouter(
-        provider_type=config.llm.provider,
-        default_model=config.llm.model,
-    )
-    llm = MultiLLMClient(primary=primary, fallback=fallback, router=router)
+    # Build LLM client via shared helper
+    llm = build_llm_client(config)
     subagent_pool = SubagentPool(registry=sub_registry, llm=llm, audit=audit)
 
     max_cost = (

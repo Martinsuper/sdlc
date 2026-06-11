@@ -4,11 +4,19 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import subprocess
 import time
 from typing import Any
 
 import httpx
+
+logger = logging.getLogger(__name__)
+
+# Allowed binary names for stdio MCP server commands
+_ALLOWED_MCP_BINARIES = frozenset({
+    "npx", "node", "python", "python3", "uvx", "uv",
+})
 
 
 class MCPClient:
@@ -33,6 +41,7 @@ class MCPClient:
         self._cache_ttl = cache_ttl
         self._tools_cache: dict[str, tuple[float, list[dict[str, Any]]]] = {}
         self._http_client = httpx.AsyncClient(timeout=timeout)
+        self._next_id = 1
 
     async def close(self) -> None:
         """Close the underlying HTTP client."""
@@ -173,9 +182,11 @@ class MCPClient:
 
     async def _call_stdio(self, server: str, tool: str, args: dict[str, Any]) -> dict[str, Any]:
         """Call a tool via stdio transport with retry logic."""
+        request_id = self._next_id
+        self._next_id += 1
         request = {
             "jsonrpc": "2.0",
-            "id": 1,
+            "id": request_id,
             "method": "tools/call",
             "params": {"name": tool, "arguments": args},
         }
@@ -192,9 +203,11 @@ class MCPClient:
 
     async def _list_tools_stdio(self, server: str) -> list[dict[str, Any]]:
         """List tools via stdio transport with retry logic."""
+        request_id = self._next_id
+        self._next_id += 1
         request = {
             "jsonrpc": "2.0",
-            "id": 1,
+            "id": request_id,
             "method": "tools/list",
             "params": {},
         }
@@ -223,6 +236,17 @@ class MCPClient:
     ) -> dict[str, Any]:
         """Run a stdio MCP server subprocess and return the JSON response."""
         cmd = server.split()
+        if not cmd:
+            raise ValueError("Empty MCP server command")
+        binary = cmd[0]
+        # Resolve the binary name if it contains a path separator
+        binary_name = binary.rsplit("/", 1)[-1] if "/" in binary else binary
+        if binary_name not in _ALLOWED_MCP_BINARIES:
+            raise ValueError(
+                f"MCP server binary '{binary_name}' is not allowed. "
+                f"Allowed binaries: {sorted(_ALLOWED_MCP_BINARIES)}"
+            )
+        logger.info("Launching MCP stdio server: %s", server)
         loop = asyncio.get_running_loop()
 
         def _run() -> dict[str, Any]:

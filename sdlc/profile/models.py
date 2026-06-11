@@ -13,6 +13,7 @@ class ProfileDef:
     gates: list[dict[str, Any]] = field(default_factory=list)
     subagent_overrides: dict[str, str] = field(default_factory=dict)
     severity: str = "P2"
+    stage_deps: dict[str, list[str]] = field(default_factory=dict)
 
 
 BUILTIN_PROFILES: list[dict[str, Any]] = [

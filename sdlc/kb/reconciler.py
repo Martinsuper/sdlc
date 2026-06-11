@@ -98,6 +98,6 @@ class Reconciler:
             payload={
                 "action": "reconcile",
                 "issue_count": len(issues),
-                "issues": issues[:20],
+                "issues": issues[:100],
             },
         )

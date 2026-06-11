@@ -1,5 +1,9 @@
 import click
 
+# NOTE: If init_cmd needs to build an LLM client, use
+# sdlc.cli.deps.build_llm_client(config) instead of duplicating the
+# provider/router assembly logic here.
+
 
 @click.command()
 @click.argument("path", default=".")

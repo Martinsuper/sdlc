@@ -1,11 +1,12 @@
 """kb — KnowledgeBase file I/O."""
 
+from datetime import UTC, datetime
 from pathlib import Path
 
 from sdlc.kb.models import KBLayer
 from sdlc.utils.exceptions import SdlcError
 from sdlc.utils.fingerprint import file_fingerprint
-from sdlc.utils.time import format_iso, now_utc
+from sdlc.utils.time import format_iso
 
 
 class KBFileNotFoundError(SdlcError):
@@ -57,7 +58,7 @@ class KnowledgeBase:
                 type=_detect_type(name),
                 path=p.resolve(),
                 fingerprint=fp,
-                last_modified=format_iso(now_utc()),
+                last_modified=datetime.fromtimestamp(stat.st_mtime, tz=UTC).isoformat(),
                 size_bytes=stat.st_size,
             )
 

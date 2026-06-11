@@ -1,5 +1,6 @@
 """kb -- 7-stage project scanner with parallel file reading and result caching."""
 
+import asyncio
 import hashlib
 import json
 import logging
@@ -140,6 +141,9 @@ _RE_REQ_DEP = re.compile(r"([a-zA-Z0-9._-]+)")
 
 # Maximum parallel readers for file I/O
 _MAX_PARALLEL_READERS = 8
+
+# Maximum files to include in file tree walk (prevents memory issues on huge repos)
+_MAX_WALK_FILES = 50_000
 
 
 # ---------------------------------------------------------------------------
@@ -442,8 +446,10 @@ def _detect_build_tools(manifests: dict[str, dict[str, Any]], languages: dict[st
 class ScanResultCache:
     """File-content-based cache to skip re-reading unchanged files across scans.
 
-    Uses a SHA-256 fingerprint of each file's content as the cache key.
-    If the fingerprint matches, the previously parsed result is reused.
+    The fingerprint is captured at ``put()`` time from the file's bytes.
+    ``get()`` compares the stored fingerprint with the current file bytes
+    without re-reading the content for parsing -- if the fingerprint matches,
+    the previously parsed result is reused.
     """
 
     def __init__(self) -> None:
@@ -456,20 +462,21 @@ class ScanResultCache:
         if cached is None:
             return None
         stored_fp, parsed = cached
-        text = _read_file_safe(path)
-        if text is None:
+        # Compare fingerprint from disk without reading full content.
+        try:
+            current_fp = hashlib.sha256(path.read_bytes()).hexdigest()
+        except OSError:
             return None
-        current_fp = hashlib.sha256(text.encode()).hexdigest()
         if current_fp == stored_fp:
             return parsed
         return None
 
     def put(self, path: Path, parsed: dict[str, Any]) -> None:
         """Store a parse result keyed by file content fingerprint."""
-        text = _read_file_safe(path)
-        if text is None:
+        try:
+            fp = hashlib.sha256(path.read_bytes()).hexdigest()
+        except OSError:
             return
-        fp = hashlib.sha256(text.encode()).hexdigest()
         self._cache[str(path)] = (fp, parsed)
 
     def clear(self) -> None:
@@ -535,6 +542,7 @@ class Scanner:
                     ctx.manifests[name] = parsed
                     self._result_cache.put(path, parsed)
                 except Exception:
+                    logger.warning("Manifest %s parse failed", name)
                     ctx.manifests[name] = {}
 
         for ci_path in CI_PATHS:
@@ -547,13 +555,25 @@ class Scanner:
                 ctx.container_configs.append(cont_path)
 
     def _walk_file_tree(self, root: Path, depth: int) -> list[str]:
-        """Walk the file tree up to *depth* levels, returning relative paths."""
+        """Walk the file tree up to *depth* levels, returning relative paths.
+
+        *depth* semantics: top-level files have depth=0, files inside a
+        top-level sub-directory have depth=1, etc.  Walking stops once
+        ``current_depth >= depth``.
+
+        The number of files is capped at ``_MAX_WALK_FILES`` to avoid
+        excessive memory consinternal-monitoringtion on very large repositories.
+        """
         result: list[str] = []
         base_str = str(root)
         base_len = len(base_str)
         for dirpath, dirnames, filenames in os.walk(str(root)):
+            # Compute depth relative to root.
+            # rel_dir is empty for root itself (depth 0).
+            # Each "/" in rel_dir adds one level of depth.
             rel_dir = dirpath[base_len:].lstrip("/").lstrip("\\")
-            current_depth = 0 if not rel_dir else rel_dir.count("/") + 1
+            # depth 0 = root, depth 1 = top-level sub-directory, etc.
+            current_depth = rel_dir.count("/") if rel_dir else 0
             if current_depth >= depth:
                 dirnames.clear()
                 continue
@@ -582,6 +602,12 @@ class Scanner:
                 except ValueError:
                     continue
                 result.append(rel)
+                if len(result) >= _MAX_WALK_FILES:
+                    logger.warning(
+                        "File tree walk capped at %d files; remaining files skipped",
+                        _MAX_WALK_FILES,
+                    )
+                    return sorted(result)
         return sorted(result)
 
     def _stage2_techstack(self, ctx: ScanContext) -> None:
@@ -642,12 +668,18 @@ class Scanner:
 
     def _stage5_import_existing(self, ctx: ScanContext) -> None:
         """Read existing docs, ADRs, changelogs, KB."""
+        max_import_files = _MAX_WALK_FILES
         for doc_dir in ["doc", "docs"]:
             p = ctx.root / doc_dir
             if p.is_dir():
                 for f in p.rglob("*"):
                     if f.is_file() and not f.name.startswith("."):
                         ctx.existing_docs.append(str(f.relative_to(ctx.root)))
+                        if len(ctx.existing_docs) >= max_import_files:
+                            logger.warning(
+                                "Import of existing docs capped at %d files", max_import_files,
+                            )
+                            break
         readme = ctx.root / "README.md"
         if readme.is_file():
             ctx.existing_docs.append("README.md")
@@ -657,6 +689,11 @@ class Scanner:
                 for f in p.rglob("*"):
                     if f.is_file():
                         ctx.existing_adrs.append(str(f.relative_to(ctx.root)))
+                        if len(ctx.existing_adrs) >= max_import_files:
+                            logger.warning(
+                                "Import of ADRs capped at %d files", max_import_files,
+                            )
+                            break
         for changelog_name in ["CHANGELOG.md", "CHANGELOG", "CHANGELOG.txt",
                                 "RELEASE_NOTES.md", "RELEASE_NOTES"]:
             p = ctx.root / changelog_name
@@ -817,3 +854,30 @@ class Scanner:
             confidence=confidence,
             next_steps=next_steps,
         )
+
+    # ------------------------------------------------------------------
+    # Async helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _run_async(coro: Any) -> Any:
+        """Run an async coroutine safely from synchronous context.
+
+        Uses ``asyncio.run()`` when no event loop is running; otherwise
+        schedules the coroutine via ``run_in_executor`` to avoid conflicts
+        with an already-running loop.
+        """
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop is None:
+            return asyncio.run(coro)
+
+        # Already inside a running loop -- use executor to avoid nesting.
+        import concurrent.futures
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(asyncio.run, coro)
+            return future.result()

@@ -8,7 +8,11 @@ Performance optimizations:
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import re
+import time
+from dataclasses import dataclass
 from typing import Any
 
 from sdlc.audit import AuditEventType, AuditLogger
@@ -21,11 +25,46 @@ from sdlc.state import StageResult as StateStageResult
 from sdlc.subagent import SubagentPool, SubagentTask
 from sdlc.utils.time import now_utc
 
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Cache infrastructure -- TTL + max entries to prevent unbounded growth
+# ---------------------------------------------------------------------------
+
+_CACHE_TTL = 3600  # seconds
+_CACHE_MAX_ENTRIES = 100
+
+
+@dataclass
+class _CacheEntry:
+    value: Any
+    timestamp: float
+
+
+def _cache_get(cache: dict[str, _CacheEntry], key: str) -> Any | None:
+    """Retrieve a value from a TTL cache, removing expired entries."""
+    entry = cache.get(key)
+    if entry is None:
+        return None
+    if time.monotonic() - entry.timestamp > _CACHE_TTL:
+        del cache[key]
+        return None
+    return entry.value
+
+
+def _cache_set(cache: dict[str, _CacheEntry], key: str, value: Any) -> None:
+    """Store a value in a TTL cache, evicting oldest entries if at capacity."""
+    if len(cache) >= _CACHE_MAX_ENTRIES and key not in cache:
+        oldest_key = min(cache, key=lambda k: cache[k].timestamp)
+        del cache[oldest_key]
+    cache[key] = _CacheEntry(value=value, timestamp=time.monotonic())
+
+
 # ---------------------------------------------------------------------------
 # YAML template cache -- avoid re-parsing the same YAML files
 # ---------------------------------------------------------------------------
 
-_yaml_cache: dict[str, Any] = {}
+_yaml_cache: dict[str, _CacheEntry] = {}
 
 
 def _cached_yaml_load(path_str: str) -> Any:
@@ -41,11 +80,12 @@ def _cached_yaml_load(path_str: str) -> Any:
         return load_yaml(p)
 
     cache_key = f"{path_str}:{mtime}"
-    if cache_key in _yaml_cache:
-        return _yaml_cache[cache_key]
+    cached = _cache_get(_yaml_cache, cache_key)
+    if cached is not None:
+        return cached
 
     data = load_yaml(p)
-    _yaml_cache[cache_key] = data
+    _cache_set(_yaml_cache, cache_key, data)
     return data
 
 
@@ -58,7 +98,7 @@ def clear_yaml_cache() -> None:
 # KB context cache -- lazy load + memoize per pipeline run
 # ---------------------------------------------------------------------------
 
-_kb_context_cache: dict[str, dict[str, str]] = {}
+_kb_context_cache: dict[str, _CacheEntry] = {}
 
 
 def _load_kb_context_lazy(stage_def: StageDef, pipeline_id: str) -> dict[str, str]:
@@ -72,8 +112,8 @@ def _load_kb_context_lazy(stage_def: StageDef, pipeline_id: str) -> dict[str, st
 
     # Check per-pipeline cache
     cache_key = pipeline_id
-    if cache_key in _kb_context_cache:
-        cached = _kb_context_cache[cache_key]
+    cached = _cache_get(_kb_context_cache, cache_key)
+    if cached is not None:
         # Only return files requested by this stage
         return {k: v for k, v in cached.items() if k in stage_def.pre_kb_load}
 
@@ -90,14 +130,20 @@ def _load_kb_context_lazy(stage_def: StageDef, pipeline_id: str) -> dict[str, st
             target = kb_root / kb_file
             if target.exists():
                 try:
-                    kb_context[kb_file] = target.read_text(encoding="utf-8")[:5000]
+                    raw = target.read_text(encoding="utf-8")
+                    if len(raw) > 5000:
+                        logger.warning(
+                            "KB file %s truncated from %d to %d chars",
+                            kb_file, len(raw), 5000,
+                        )
+                    kb_context[kb_file] = raw[:5000]
                 except Exception:
                     kb_context[kb_file] = f"[KB: {kb_file}] (could not read)"
             else:
                 kb_context[kb_file] = f"[KB: {kb_file}] (not found)"
 
     # Store in per-pipeline cache
-    _kb_context_cache[pipeline_id] = kb_context
+    _cache_set(_kb_context_cache, cache_key, kb_context)
     return kb_context
 
 
@@ -106,11 +152,16 @@ def clear_kb_context_cache() -> None:
     _kb_context_cache.clear()
 
 
+def clear_kb_context_for_pipeline(pipeline_id: str) -> None:
+    """Remove a specific pipeline's entry from the KB context cache."""
+    _kb_context_cache.pop(pipeline_id, None)
+
+
 # ---------------------------------------------------------------------------
 # Rule context cache with pre-compiled regex
 # ---------------------------------------------------------------------------
 
-_rule_context_cache: dict[str, list[dict[str, str]]] = {}
+_rule_context_cache: dict[str, _CacheEntry] = {}
 _compiled_patterns: dict[str, re.Pattern[str]] = {}
 
 
@@ -122,15 +173,16 @@ def _precompile_pattern(pattern: str) -> re.Pattern[str] | None:
         compiled = re.compile(pattern)
         _compiled_patterns[pattern] = compiled
         return compiled
-    except re.error:
-        _compiled_patterns[pattern] = None  # type: ignore[assignment]
+    except re.error as e:
+        logger.warning("Invalid regex pattern '%s': %s", pattern, e)
         return None
 
 
 def _load_rules_context(stage_id: str) -> list[dict[str, str]]:
     """Load rules context for a stage, with caching by stage_id."""
-    if stage_id in _rule_context_cache:
-        return _rule_context_cache[stage_id]
+    cached = _cache_get(_rule_context_cache, stage_id)
+    if cached is not None:
+        return cached
 
     rules_context: list[dict[str, str]] = []
     try:
@@ -154,16 +206,24 @@ def _load_rules_context(stage_id: str) -> list[dict[str, str]]:
             if r.level
             in (RuleLevel.MUST, RuleLevel.MUST_NOT, RuleLevel.SHOULD, RuleLevel.SHOULD_NOT)
         ]
-    except Exception:
-        pass
+    except Exception as e:
+        logger.warning("Rule loading failed for stage %s: %s", stage_id, e)
 
-    _rule_context_cache[stage_id] = rules_context
+    _cache_set(_rule_context_cache, stage_id, rules_context)
     return rules_context
 
 
 def clear_rule_context_cache() -> None:
     """Clear the rule context cache."""
     _rule_context_cache.clear()
+
+
+def clear_all_caches() -> None:
+    """Clear all module-level caches."""
+    _yaml_cache.clear()
+    _kb_context_cache.clear()
+    _rule_context_cache.clear()
+    _compiled_patterns.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -180,6 +240,7 @@ class StageRunner:
         subagent_pool: SubagentPool,
         gate_engine: GateEngine | None = None,
         memory_l2: MemoryL2 | None = None,
+        strict_deps: bool = False,
     ) -> None:
         self.catalog = catalog
         self.state = state
@@ -187,6 +248,7 @@ class StageRunner:
         self.subagent_pool = subagent_pool
         self.gate_engine = gate_engine
         self.memory_l2 = memory_l2
+        self.strict_deps = strict_deps
 
     async def run_stage(
         self,
@@ -211,11 +273,41 @@ class StageRunner:
             # Lazy-load KB context with per-pipeline caching
             kb_context = _load_kb_context_lazy(stage_def, pipeline_id)
 
+            # Check required artifacts
             for art_name in stage_def.required_artifacts:
                 existing = self.state.list_artifacts(pipeline_id)
                 found = any(a for a in existing if a.type == art_name)
                 if not found:
-                    pass
+                    logger.warning(
+                        "Required artifact '%s' missing for stage '%s'",
+                        art_name,
+                        stage_def.id,
+                    )
+                    if self.strict_deps:
+                        status = "SKIPPED"
+                        error = f"Required artifact '{art_name}' not found"
+                        break
+
+            if status == "SKIPPED":
+                # Short-circuit when strict_deps is True and artifacts are missing
+                stage_result = StateStageResult(
+                    id=f"{pipeline_id}-{stage_def.id}",
+                    pipeline_id=pipeline_id,
+                    stage_def_id=stage_def.id,
+                    status=status,
+                    started_at=started_at,
+                    finished_at=now_utc().isoformat(),
+                    error=error,
+                )
+                self.state.save_stage_result(stage_result)
+                return {
+                    "stage_id": stage_def.id,
+                    "status": status,
+                    "artifacts": [],
+                    "cost_usd": 0.0,
+                    "error": error,
+                    "gate_decision": None,
+                }
 
             # Load applicable rules for this stage (cached)
             rules_context = _load_rules_context(stage_def.id)
@@ -229,22 +321,35 @@ class StageRunner:
                     stage_id=stage_def.id,
                     max_iter=stage_def.timeout // 60 or 10,
                 )
-                result = await self.subagent_pool.invoke(stage_def.subagent, task)
-                total_cost = result.cost_usd
-                if not result.success:
+                timeout_seconds = stage_def.timeout or 1800
+                try:
+                    result = await asyncio.wait_for(
+                        self.subagent_pool.invoke(stage_def.subagent, task),
+                        timeout=timeout_seconds,
+                    )
+                except asyncio.TimeoutError:
                     status = "FAILED"
-                    error = result.error or "Subagent failed"
-                else:
-                    for art_id in stage_def.produces_artifacts:
-                        content = result.artifacts.get(art_id, result.output[:500])
-                        artifacts_produced.append(
-                            {
-                                "id": f"{pipeline_id}-{stage_def.id}-{art_id}",
-                                "type": "doc",
-                                "name": art_id,
-                                "content": content if isinstance(content, str) else str(content),
-                            }
-                        )
+                    error = (
+                        f"Stage '{stage_def.id}' timed out after {timeout_seconds}s"
+                    )
+                    result = None
+
+                if result is not None:
+                    total_cost = result.cost_usd
+                    if not result.success:
+                        status = "FAILED"
+                        error = result.error or "Subagent failed"
+                    else:
+                        for art_id in stage_def.produces_artifacts:
+                            content = result.artifacts.get(art_id, result.output[:500])
+                            artifacts_produced.append(
+                                {
+                                    "id": f"{pipeline_id}-{stage_def.id}-{art_id}",
+                                    "type": "doc",
+                                    "name": art_id,
+                                    "content": content if isinstance(content, str) else str(content),
+                                }
+                            )
 
             if status == "SUCCESS":
                 for art_dict in artifacts_produced:
@@ -253,7 +358,7 @@ class StageRunner:
                         pipeline_id=pipeline_id,
                         stage_id=stage_def.id,
                         type=art_dict.get("type", "doc"),
-                        path=art_dict.get("name"),
+                        path=art_dict.get("path") or art_dict.get("name"),
                         created_at=now_utc().isoformat(),
                     )
                     self.state.register_artifact(artifact)
@@ -343,8 +448,14 @@ class StageRunner:
             if result["status"] == "SUCCESS":
                 completed_ids.add(node.id)
             elif (
-                result["gate_decision"] and result["gate_decision"].action == GateAction.BLOCK
+                result.get("gate_decision") and result["gate_decision"].action == GateAction.BLOCK
             ) or result["status"] == "FAILED":
+                # Design decision: in sequential mode, stop on first
+                # BLOCK gate or FAILED stage.  Independent stages that
+                # could still run are intentionally skipped.
                 break
+
+        # Pipeline finished; clean up KB context cache for this pipeline
+        clear_kb_context_for_pipeline(pipeline_id)
 
         return results

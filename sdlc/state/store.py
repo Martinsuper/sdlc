@@ -1,8 +1,9 @@
+import hmac
 import sqlite3
 import threading
 from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -38,6 +39,12 @@ class StateStore:
 
     def _init_schema(self) -> None:
         self.db.executescript(SCHEMA_SQL)
+        self.db.execute("PRAGMA journal_mode=WAL")
+
+    def _read_execute(self, sql: str, params: tuple[Any, ...] = ()) -> sqlite3.Cursor:
+        """Execute a read query under the lock for thread safety."""
+        with self._lock:
+            return self.db.execute(sql, params)
 
     @contextmanager
     def transaction(self) -> Generator[sqlite3.Connection, None, None]:
@@ -68,7 +75,7 @@ class StateStore:
             )
 
     def load_pipeline(self, pipeline_id: str) -> PipelineSummary | None:
-        row = self.db.execute(
+        row = self._read_execute(
             "SELECT * FROM v_pipeline_summary WHERE id=?", (pipeline_id,)
         ).fetchone()
         if not row:
@@ -76,15 +83,20 @@ class StateStore:
         return PipelineSummary(**dict(row))
 
     def update_pipeline_status(self, pipeline_id: str, status: str, **updates: Any) -> None:
-        current = self.load_pipeline(pipeline_id)
-        if (
-            current
-            and status not in VALID_TRANSITIONS.get(current.status, {status})
-            and current.status != status
-        ):
-            pass
         now = now_utc().isoformat()
         with self.transaction() as tx:
+            row = tx.execute(
+                "SELECT status FROM pipelines WHERE id=?", (pipeline_id,)
+            ).fetchone()
+            if row:
+                current_status = row["status"]
+                if (
+                    status not in VALID_TRANSITIONS.get(current_status, {status})
+                    and current_status != status
+                ):
+                    raise InvalidStateTransitionError(
+                        f"Invalid transition: {current_status} -> {status}"
+                    )
             tx.execute(
                 "UPDATE pipelines SET status=?, updated_at=? WHERE id=?",
                 (status, now, pipeline_id),
@@ -106,7 +118,7 @@ class StateStore:
             params.append(since.isoformat())
         query += " ORDER BY created_at DESC LIMIT ?"
         params.append(limit)
-        rows = self.db.execute(query, params).fetchall()
+        rows = self._read_execute(query, tuple(params)).fetchall()
         return [PipelineSummary(**dict(r)) for r in rows]
 
     def delete_pipeline(self, pipeline_id: str) -> None:
@@ -131,7 +143,7 @@ class StateStore:
             )
 
     def load_stage_result(self, pipeline_id: str, stage_id: str) -> StageResult | None:
-        row = self.db.execute(
+        row = self._read_execute(
             "SELECT * FROM stages WHERE id=? AND pipeline_id=?",
             (stage_id, pipeline_id),
         ).fetchone()
@@ -140,7 +152,7 @@ class StateStore:
         return StageResult(**dict(row))
 
     def list_stage_results(self, pipeline_id: str) -> list[StageResult]:
-        rows = self.db.execute(
+        rows = self._read_execute(
             "SELECT * FROM stages WHERE pipeline_id=? ORDER BY started_at",
             (pipeline_id,),
         ).fetchall()
@@ -166,18 +178,18 @@ class StateStore:
 
     def list_artifacts(self, pipeline_id: str, type: str | None = None) -> list[Artifact]:
         if type:
-            rows = self.db.execute(
+            rows = self._read_execute(
                 "SELECT * FROM artifacts WHERE pipeline_id=? AND type=?",
                 (pipeline_id, type),
             ).fetchall()
         else:
-            rows = self.db.execute(
+            rows = self._read_execute(
                 "SELECT * FROM artifacts WHERE pipeline_id=?", (pipeline_id,)
             ).fetchall()
         return [Artifact(**dict(r)) for r in rows]
 
     def get_artifact(self, artifact_id: str) -> Artifact | None:
-        row = self.db.execute("SELECT * FROM artifacts WHERE id=?", (artifact_id,)).fetchone()
+        row = self._read_execute("SELECT * FROM artifacts WHERE id=?", (artifact_id,)).fetchone()
         if not row:
             return None
         return Artifact(**dict(row))
@@ -214,14 +226,14 @@ class StateStore:
             )
 
     def get_pipeline_cost(self, pipeline_id: str) -> float:
-        row = self.db.execute(
+        row = self._read_execute(
             "SELECT COALESCE(SUM(cost_usd), 0) as total FROM llm_calls WHERE pipeline_id=?",
             (pipeline_id,),
         ).fetchone()
         return float(row["total"]) if row else 0.0
 
     def get_cost_daily(self, since: datetime) -> list[CostStat]:
-        rows = self.db.execute(
+        rows = self._read_execute(
             "SELECT * FROM v_cost_daily WHERE day>=? ORDER BY day",
             (since.strftime("%Y-%m-%d"),),
         ).fetchall()
@@ -246,34 +258,43 @@ class StateStore:
             return cursor.lastrowid  # type: ignore
 
     def get_kb_deltas(self, target: str, since: datetime) -> list[KBDelta]:
-        rows = self.db.execute(
+        rows = self._read_execute(
             "SELECT * FROM kb_deltas WHERE target=? AND created_at>=? ORDER BY created_at",
             (target, since.isoformat()),
         ).fetchall()
         return [KBDelta(**dict(r)) for r in rows]
 
     def save_resume_token(self, pipeline_id: str, token: str, expires_at: str) -> None:
+        # Normalize expires_at to UTC ISO format with timezone info
+        dt = datetime.fromisoformat(expires_at)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        else:
+            dt = dt.astimezone(UTC)
+        expires_utc = dt.isoformat()
         with self.transaction() as tx:
             tx.execute(
                 "INSERT OR REPLACE INTO resume_tokens "
                 "(pipeline_id, token, expires_at) VALUES (?,?,?)",
-                (pipeline_id, token, expires_at),
+                (pipeline_id, token, expires_utc),
             )
 
     def verify_resume_token(self, pipeline_id: str, token: str) -> bool:
-        row = self.db.execute(
+        row = self._read_execute(
             "SELECT token, expires_at FROM resume_tokens WHERE pipeline_id=?",
             (pipeline_id,),
         ).fetchone()
         if not row:
             return False
-        if row["token"] != token:
+        if not hmac.compare_digest(row["token"], token):
             return False
         expires = datetime.fromisoformat(row["expires_at"])
-        return not datetime.now(tz=expires.tzinfo) > expires
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=UTC)
+        return not datetime.now(UTC) > expires
 
     def get_resume_state(self, pipeline_id: str) -> ResumeState | None:
-        row = self.db.execute(
+        row = self._read_execute(
             "SELECT * FROM resume_tokens WHERE pipeline_id=?", (pipeline_id,)
         ).fetchone()
         if not row:
@@ -287,10 +308,12 @@ class StateStore:
     def backup(self, dest: Path) -> None:
         ensure_dir(dest.parent)
         backup_db = sqlite3.connect(str(dest))
-        self.db.backup(backup_db)
+        with self._lock:
+            self.db.backup(backup_db)
         backup_db.close()
 
     def restore(self, src: Path) -> None:
         src_db = sqlite3.connect(str(src))
-        self.db.backup(src_db)
+        with self._lock:
+            src_db.backup(self.db)
         src_db.close()
