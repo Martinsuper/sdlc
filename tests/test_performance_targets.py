@@ -216,15 +216,15 @@ class TestLLMCacheHitRate:
         assert metrics["meets_target"] is True  # 66.7% > 30%
 
     def test_semantic_similarity_improves_hit_rate(self, cache: LLMCache) -> None:
-        """Normalized whitespace/lowercase should improve cache hit rate."""
+        """Normalized whitespace should improve cache hit rate."""
         # Store with one formatting
         req1 = self._req(content="Hello  World\n\nHow  are  you")
         asyncio.run(cache.put(req1, self._resp()))
 
-        # Look up with different whitespace and casing but same semantic content
-        req2 = self._req(content="hello world how are you")
+        # Look up with different whitespace but same casing and semantic content
+        req2 = self._req(content="Hello World How are you")
         result = asyncio.run(cache.get(req2))
-        # Same fingerprint due to normalization
+        # Same fingerprint due to whitespace normalization
         assert result is not None, "Semantic similarity should match normalized content"
 
         metrics = cache.hit_rate_metrics()

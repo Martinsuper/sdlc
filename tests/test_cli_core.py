@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from click.testing import CliRunner
 
@@ -54,7 +54,14 @@ class TestRunCommand:
         from sdlc.cli.run_cmd import run
 
         runner = CliRunner()
-        result = runner.invoke(run, ["fix bug in login"])
+        with patch("sdlc.cli.deps.build_deps") as mock_deps:
+            from sdlc.core.models import PipelineResult
+            mock_deps.return_value.coordinator.run = AsyncMock(
+                return_value=PipelineResult(
+                    pipeline_id="test-1", status="completed", stage_results=[], total_cost_usd=0.0
+                )
+            )
+            result = runner.invoke(run, ["fix bug in login"])
         assert result.exit_code == 0
         assert "Entry detected" in result.output
 
@@ -64,7 +71,14 @@ class TestRunCommand:
         f = tmp_path / "input.txt"
         f.write_text("implement a new feature for dashboard")
         runner = CliRunner()
-        result = runner.invoke(run, [f"@{f}"])
+        with patch("sdlc.cli.deps.build_deps") as mock_deps:
+            from sdlc.core.models import PipelineResult
+            mock_deps.return_value.coordinator.run = AsyncMock(
+                return_value=PipelineResult(
+                    pipeline_id="test-1", status="completed", stage_results=[], total_cost_usd=0.0
+                )
+            )
+            result = runner.invoke(run, [f"@{f}"])
         assert result.exit_code == 0
         assert "feature" in result.output
 
@@ -80,7 +94,14 @@ class TestRunCommand:
         from sdlc.cli.run_cmd import run
 
         runner = CliRunner()
-        result = runner.invoke(run, ["some text", "-e", "hotfix"])
+        with patch("sdlc.cli.deps.build_deps") as mock_deps:
+            from sdlc.core.models import PipelineResult
+            mock_deps.return_value.coordinator.run = AsyncMock(
+                return_value=PipelineResult(
+                    pipeline_id="test-1", status="completed", stage_results=[], total_cost_usd=0.0
+                )
+            )
+            result = runner.invoke(run, ["some text", "-e", "hotfix"])
         assert result.exit_code == 0
         assert "hotfix" in result.output
 
@@ -96,7 +117,14 @@ class TestRunCommand:
         from sdlc.cli.run_cmd import run
 
         runner = CliRunner()
-        result = runner.invoke(run, ["some text", "--severity", "P0"])
+        with patch("sdlc.cli.deps.build_deps") as mock_deps:
+            from sdlc.core.models import PipelineResult
+            mock_deps.return_value.coordinator.run = AsyncMock(
+                return_value=PipelineResult(
+                    pipeline_id="test-1", status="completed", stage_results=[], total_cost_usd=0.0
+                )
+            )
+            result = runner.invoke(run, ["some text", "--severity", "P0"])
         assert result.exit_code == 0
         assert "P0" in result.output
 

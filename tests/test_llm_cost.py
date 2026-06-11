@@ -1,4 +1,6 @@
-from sdlc.llm.cost import CostTracker
+import pytest
+
+from sdlc.llm.cost import BudgetExceededError, CostTracker
 
 
 class TestCostTracker:
@@ -36,7 +38,8 @@ class TestCostTracker:
     def test_check_budget_exceeded(self):
         tracker = CostTracker(max_budget_usd=0.05)
         tracker.record("claude-sonnet-4-6", 1000, 500, 0.03)
-        tracker.record("claude-sonnet-4-6", 2000, 1000, 0.06)
+        with pytest.raises(BudgetExceededError):
+            tracker.record("claude-sonnet-4-6", 2000, 1000, 0.06)
         assert tracker.check_budget() is True
 
     def test_check_budget_exact_limit(self):
@@ -66,7 +69,8 @@ class TestCostTracker:
 
     def test_summary_budget_exceeded(self):
         tracker = CostTracker(max_budget_usd=0.05)
-        tracker.record("claude-sonnet-4-6", 1000, 500, 0.06)
+        with pytest.raises(BudgetExceededError):
+            tracker.record("claude-sonnet-4-6", 1000, 500, 0.06)
         summary = tracker.summary()
         assert summary["budget_exceeded"] is True
         assert summary["budget_remaining"] == 0.0

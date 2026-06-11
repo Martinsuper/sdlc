@@ -134,7 +134,7 @@ async def test_pipeline_happy_path(tmp_path: Path) -> None:
 
     pipeline = state.load_pipeline(result.pipeline_id)
     assert pipeline is not None
-    assert pipeline.status in ("COMPLETED", "PAUSED", "FAILED")
+    assert pipeline.status in ("SUCCESS", "PAUSED", "FAILED")
 
     # Verify audit events were emitted (some events have pipeline_id, some don't)
     pipeline_events = list(audit.query(pipeline_id=result.pipeline_id))
@@ -279,9 +279,9 @@ def test_state_audit_roundtrip(tmp_path: Path) -> None:
     events = list(audit.query(pipeline_id="test-1"))
     assert len(events) == 2
 
-    store.update_pipeline_status("test-1", "COMPLETED")
+    store.update_pipeline_status("test-1", "SUCCESS")
     pipeline = store.load_pipeline("test-1")
-    assert pipeline.status == "COMPLETED"
+    assert pipeline.status == "SUCCESS"
 
 
 # ---------------------------------------------------------------------------

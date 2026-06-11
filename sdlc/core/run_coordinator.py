@@ -177,7 +177,14 @@ class RunCoordinator:
                 error=str(exc),
             )
 
-        self.state.update_pipeline_status(pipeline.id, final_status.upper())
+        # Map logical final_status to valid pipeline state transitions
+        pipeline_status_map = {
+            "completed": "SUCCESS",
+            "failed": "FAILED",
+            "paused": "PAUSED",
+        }
+        pipeline_status = pipeline_status_map.get(final_status, final_status.upper())
+        self.state.update_pipeline_status(pipeline.id, pipeline_status)
         self.audit.emit(
             AuditEventType.PIPELINE_END,
             {"id": pipeline.id, "status": final_status, "cost_usd": total_cost},

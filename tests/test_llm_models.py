@@ -67,7 +67,7 @@ def test_completion_request_defaults():
     assert req.messages == []
     assert req.tools == []
     assert req.system is None
-    assert req.max_tokens == 4096
+    assert req.max_tokens == 16384
     assert req.temperature == 0.7
     assert req.top_p == 1.0
     assert req.stop_sequences == []

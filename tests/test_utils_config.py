@@ -16,7 +16,7 @@ def test_llm_config_default_provider():
     assert llm.model == "claude-sonnet-4-20250514"
     assert llm.api_key_env == "ANTHROPIC_API_KEY"
     assert llm.base_url is None
-    assert llm.max_tokens == 4096
+    assert llm.max_tokens == 8192
     assert llm.temperature == 0.7
     assert llm.timeout == 120.0
     assert llm.max_cost_usd == 5.0

@@ -292,7 +292,7 @@ class TestKBWriter:
         assert not d1.skipped
         d2 = writer.update_after_stage("s2", [upd])[0]
         assert d2.skipped
-        assert d2.skip_reason == "duplicate fingerprint"
+        assert d2.skip_reason == "duplicate target"
 
     def test_human_only_file_skipped(self, kb: KnowledgeBase, audit_log: AuditLogger) -> None:
         writer = KBWriter(kb, audit=audit_log)
@@ -389,13 +389,17 @@ class TestKBWriter:
 
 
 class TestFingerprint:
-    def test_compute_kb_fingerprint(self) -> None:
+    def test_compute_kb_fingerprint(self, tmp_path: Path) -> None:
         content = "hello world"
+        p = tmp_path / "test.txt"
+        p.write_text(content, encoding="utf-8")
         expected = hashlib.sha256(content.encode("utf-8")).hexdigest()
-        assert compute_kb_fingerprint(content) == expected
+        assert compute_kb_fingerprint(p) == expected
 
-    def test_compute_kb_fingerprint_empty(self) -> None:
-        assert compute_kb_fingerprint("") == hashlib.sha256(b"").hexdigest()
+    def test_compute_kb_fingerprint_empty(self, tmp_path: Path) -> None:
+        p = tmp_path / "empty.txt"
+        p.write_bytes(b"")
+        assert compute_kb_fingerprint(p) == hashlib.sha256(b"").hexdigest()
 
     def test_compute_layer_fingerprint(self, tmp_path: Path) -> None:
         p = tmp_path / "test.txt"

@@ -77,7 +77,7 @@ class TestEntryDetector:
 
     def test_detect_default_confidence(self):
         ep = self.detector.detect("hello world")
-        assert ep.confidence == 0.3
+        assert ep.confidence == 0.1
 
     def test_detect_attachments(self):
         ep = self.detector.detect("做一个功能 @spec.md ./code.py")
@@ -273,7 +273,7 @@ class TestRunCoordinator:
         await coordinator.run("开发一个新功能")
         pipelines = state.list_pipelines()
         assert len(pipelines) >= 1
-        assert pipelines[0].status == "COMPLETED"
+        assert pipelines[0].status == "SUCCESS"
 
     @pytest.mark.asyncio
     async def test_run_with_explicit_profile(self, coordinator, state, audit):

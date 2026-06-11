@@ -141,10 +141,10 @@ def test_fingerprint_different_request_different_hash(cache: LLMCache):
     assert cache._fingerprint(req1) != cache._fingerprint(req2)
 
 
-def test_fingerprint_ignores_temperature(cache: LLMCache):
+def test_fingerprint_includes_temperature(cache: LLMCache):
     req1 = _req(temperature=0.0)
     req2 = _req(temperature=1.0)
-    assert cache._fingerprint(req1) == cache._fingerprint(req2)
+    assert cache._fingerprint(req1) != cache._fingerprint(req2)
 
 
 def test_fingerprint_ignores_metadata(cache: LLMCache):

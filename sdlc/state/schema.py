@@ -106,7 +106,7 @@ GROUP BY DATE(created_at), model;
 
 VALID_TRANSITIONS: dict[str, set[str]] = {
     "PENDING": {"RUNNING", "SKIPPED"},
-    "RUNNING": {"SUCCESS", "FAILED"},
+    "RUNNING": {"SUCCESS", "FAILED", "PAUSED"},
     "SUCCESS": set(),
     "FAILED": {"PENDING"},
     "SKIPPED": set(),

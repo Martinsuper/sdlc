@@ -9,6 +9,7 @@ import pytest
 
 from sdlc.cli.deps import DependencyContainer, build_deps
 from sdlc.utils.config import SdlcConfig
+from sdlc.utils.exceptions import ConfigError
 
 
 class TestDependencyContainer:
@@ -128,12 +129,11 @@ class TestDependencyContainer:
         assert container.coordinator.cost_tracker is container.cost_tracker
 
     def test_build_deps_without_api_keys(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-        """build_deps does not crash when API keys are not set."""
+        """build_deps raises ConfigError when API keys are not set."""
         monkeypatch.setenv("HOME", str(tmp_path))
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
         with patch("sdlc.cli.deps.sdlc_home", return_value=tmp_path):
-            container = build_deps()
-
-        assert isinstance(container, DependencyContainer)
+            with pytest.raises(ConfigError, match="API key"):
+                build_deps()

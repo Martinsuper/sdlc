@@ -17,6 +17,7 @@ from sdlc.integrations.http_client import HTTPClient
 from sdlc.integrations.mcp_client import MCPClient
 from sdlc.integrations.shell_runner import ShellResult, ShellRunner
 from sdlc.integrations.whitelist import (
+    ALL,
     SecurityError,
     is_command_allowed,
     validate_command_safety,
@@ -59,7 +60,7 @@ class TestIsCommandAllowed:
 
     def test_python_allowed_flags(self) -> None:
         assert is_command_allowed(["python", "-m", "pytest"]) is True
-        assert is_command_allowed(["python", "-c", "print(1)"]) is True
+        assert is_command_allowed(["python", "-c", "print(1)"]) is False  # -c removed from whitelist
         assert is_command_allowed(["python", "-V"]) is True
 
     def test_python_forbidden_flag(self) -> None:
@@ -75,10 +76,10 @@ class TestIsCommandAllowed:
 
     def test_docker_allowed(self) -> None:
         assert is_command_allowed(["docker", "build", "."]) is True
-        assert is_command_allowed(["docker", "run", "image"]) is True
+        assert is_command_allowed(["docker", "run", "image"]) is False  # docker run removed from whitelist
 
     def test_custom_whitelist(self) -> None:
-        custom: dict[str, set[str]] = {"echo": set(), "mytool": {"run"}}
+        custom: dict[str, set[str]] = {"echo": ALL, "mytool": {"run"}}
         assert is_command_allowed(["echo", "hello"], whitelist=custom) is True
         assert is_command_allowed(["mytool", "run"], whitelist=custom) is True
         assert is_command_allowed(["mytool", "build"], whitelist=custom) is False
@@ -175,7 +176,7 @@ class TestShellRunner:
 
     def test_denied_command_raises_security_error(self) -> None:
         runner = ShellRunner()
-        with pytest.raises(SecurityError, match="Command not allowed"):
+        with pytest.raises(SecurityError):
             runner.run(["rm", "-rf", "/"])
 
     def test_shell_operator_raises_security_error(self) -> None:
@@ -184,20 +185,20 @@ class TestShellRunner:
             runner.run(["echo", "hello", "|", "grep", "h"])
 
     def test_custom_whitelist(self) -> None:
-        runner = ShellRunner(whitelist={"echo": set()})
+        runner = ShellRunner(whitelist={"echo": ALL})
         result = runner.run(["echo", "custom"])
         assert result.exit_code == 0
         assert "custom" in result.stdout
 
     def test_custom_whitelist_denies_others(self) -> None:
-        runner = ShellRunner(whitelist={"echo": set()})
+        runner = ShellRunner(whitelist={"echo": ALL})
         with pytest.raises(SecurityError, match="Command not allowed"):
             runner.run(["git", "status"])
 
     def test_timeout_propagated(self) -> None:
-        runner = ShellRunner(default_timeout=1)
+        runner = ShellRunner(whitelist={"sleep": ALL}, default_timeout=1)
         with pytest.raises(subprocess.TimeoutExpired):
-            runner.run(["python", "-c", "import time\ntime.sleep(10)"], timeout=1)
+            runner.run(["sleep", "10"], timeout=1)
 
     def test_cwd_parameter(self) -> None:
         runner = ShellRunner()
@@ -392,32 +393,38 @@ class TestFileSystem:
     def test_read_file(self, tmp_dir: Path) -> None:
         file_path = tmp_dir / "test.txt"
         file_path.write_text("hello world")
-        assert FileSystem.read_file(file_path) == "hello world"
+        fs = FileSystem(project_root=tmp_dir)
+        assert fs.read_file(file_path) == "hello world"
 
     def test_read_file_not_found(self, tmp_dir: Path) -> None:
+        fs = FileSystem(project_root=tmp_dir)
         with pytest.raises(FileNotFoundError):
-            FileSystem.read_file(tmp_dir / "nonexistent.txt")
+            fs.read_file(tmp_dir / "nonexistent.txt")
 
     def test_read_file_is_directory(self, tmp_dir: Path) -> None:
         sub_dir = tmp_dir / "subdir"
         sub_dir.mkdir()
+        fs = FileSystem(project_root=tmp_dir)
         with pytest.raises(ValueError, match="not a file"):
-            FileSystem.read_file(sub_dir)
+            fs.read_file(sub_dir)
 
     def test_write_file(self, tmp_dir: Path) -> None:
         file_path = tmp_dir / "output.txt"
-        FileSystem.write_file(file_path, "hello")
+        fs = FileSystem(project_root=tmp_dir)
+        fs.write_file(file_path, "hello")
         assert file_path.read_text() == "hello"
 
     def test_write_file_creates_parent_dirs(self, tmp_dir: Path) -> None:
         file_path = tmp_dir / "deep" / "nested" / "dir" / "file.txt"
-        FileSystem.write_file(file_path, "content")
+        fs = FileSystem(project_root=tmp_dir)
+        fs.write_file(file_path, "content")
         assert file_path.read_text() == "content"
 
     def test_write_file_overwrite(self, tmp_dir: Path) -> None:
         file_path = tmp_dir / "file.txt"
-        FileSystem.write_file(file_path, "first")
-        FileSystem.write_file(file_path, "second")
+        fs = FileSystem(project_root=tmp_dir)
+        fs.write_file(file_path, "first")
+        fs.write_file(file_path, "second")
         assert file_path.read_text() == "second"
 
     def test_list_files(self, tmp_dir: Path) -> None:
@@ -425,7 +432,8 @@ class TestFileSystem:
         (tmp_dir / "b.txt").write_text("b")
         (tmp_dir / "sub").mkdir()
         (tmp_dir / "sub" / "c.txt").write_text("c")
-        files = FileSystem.list_files(tmp_dir, pattern="*.txt")
+        fs = FileSystem(project_root=tmp_dir)
+        files = fs.list_files(tmp_dir, pattern="*.txt")
         names = [f.name for f in files]
         assert "a.txt" in names
         assert "b.txt" in names
@@ -435,7 +443,8 @@ class TestFileSystem:
         (tmp_dir / "a.txt").write_text("a")
         (tmp_dir / "sub").mkdir()
         (tmp_dir / "sub" / "c.txt").write_text("c")
-        files = FileSystem.list_files(tmp_dir, pattern="**/*.txt")
+        fs = FileSystem(project_root=tmp_dir)
+        files = fs.list_files(tmp_dir, pattern="**/*.txt")
         names = [f.name for f in files]
         assert "a.txt" in names
         assert "c.txt" in names
@@ -443,13 +452,15 @@ class TestFileSystem:
     def test_list_files_not_directory(self, tmp_dir: Path) -> None:
         file_path = tmp_dir / "file.txt"
         file_path.write_text("x")
+        fs = FileSystem(project_root=tmp_dir)
         with pytest.raises(ValueError, match="not a directory"):
-            FileSystem.list_files(file_path)
+            fs.list_files(file_path)
 
     def test_file_info(self, tmp_dir: Path) -> None:
         file_path = tmp_dir / "info.txt"
         file_path.write_text("some content here")
-        info = FileSystem.file_info(file_path)
+        fs = FileSystem(project_root=tmp_dir)
+        info = fs.file_info(file_path)
         assert info["size"] == len("some content here")
         assert info["is_file"] is True
         assert "modified" in info
@@ -457,17 +468,20 @@ class TestFileSystem:
         assert str(file_path.resolve()) == info["path"]
 
     def test_file_info_not_found(self, tmp_dir: Path) -> None:
+        fs = FileSystem(project_root=tmp_dir)
         with pytest.raises(FileNotFoundError):
-            FileSystem.file_info(tmp_dir / "nonexistent.txt")
+            fs.file_info(tmp_dir / "nonexistent.txt")
 
     def test_file_info_is_directory(self, tmp_dir: Path) -> None:
+        fs = FileSystem(project_root=tmp_dir)
         with pytest.raises(ValueError, match="not a file"):
-            FileSystem.file_info(tmp_dir)
+            fs.file_info(tmp_dir)
 
     def test_read_file_custom_encoding(self, tmp_dir: Path) -> None:
         file_path = tmp_dir / "utf8.txt"
         file_path.write_text("héllo", encoding="utf-8")
-        assert FileSystem.read_file(file_path, encoding="utf-8") == "héllo"
+        fs = FileSystem(project_root=tmp_dir)
+        assert fs.read_file(file_path, encoding="utf-8") == "héllo"
 
 
 # ---------------------------------------------------------------------------

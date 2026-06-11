@@ -376,29 +376,24 @@ class TestSkillRunnerRun:
 
     def test_run_create_pr(self) -> None:
         runner = SkillRunner()
-        result = asyncio.run(
-            runner.run("create_pr", {"title": "My PR", "branch": "feature"})
-        )
-        assert result["skill"] == "create_pr"
-        assert result["title"] == "My PR"
-        assert result["branch"] == "feature"
+        with pytest.raises(NotImplementedError):
+            asyncio.run(
+                runner.run("create_pr", {"title": "My PR", "branch": "feature"})
+            )
 
     def test_run_review_pr(self) -> None:
         runner = SkillRunner()
-        result = asyncio.run(
-            runner.run("review_pr", {"pr_url": "https://github.com/x/pull/1", "diff": "abc"})
-        )
-        assert result["skill"] == "review_pr"
-        assert result["pr_url"] == "https://github.com/x/pull/1"
+        with pytest.raises(NotImplementedError):
+            asyncio.run(
+                runner.run("review_pr", {"pr_url": "https://github.com/x/pull/1", "diff": "abc"})
+            )
 
     def test_run_deploy_check(self) -> None:
         runner = SkillRunner()
-        result = asyncio.run(
-            runner.run("deploy_check", {"env": "staging", "checks": ["tests_pass"]})
-        )
-        assert result["skill"] == "deploy_check"
-        assert result["env"] == "staging"
-        assert result["ready"] is True
+        with pytest.raises(NotImplementedError):
+            asyncio.run(
+                runner.run("deploy_check", {"env": "staging", "checks": ["tests_pass"]})
+            )
 
     def test_run_unknown_skill_raises(self) -> None:
         runner = SkillRunner()

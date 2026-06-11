@@ -66,7 +66,7 @@ def test_ollama_preset_fields():
     p = get_preset("ollama")
     assert p is not None
     assert p.base_url == "http://localhost:11434/v1"
-    assert p.api_key_env == "OLLAMA_API_KEY"
+    assert p.api_key_env == ""  # Ollama needs no API key
     assert p.default_model == "llama3"
 
 
