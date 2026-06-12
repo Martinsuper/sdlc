@@ -1,6 +1,6 @@
 [project]
 name = "sdlc"
-version = "1.0.0"
+version = "1.1.0"
 description = "AI-driven full-lifecycle SDLC orchestration CLI tool"
 readme = "README.md"
 requires-python = ">=3.11"
