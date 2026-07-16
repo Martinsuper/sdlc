@@ -21,11 +21,22 @@ class ModelRouter:
         ],
     }
 
-    def __init__(self, provider_type: str = "anthropic", default_model: str = "") -> None:
+    def __init__(
+        self,
+        provider_type: str = "anthropic",
+        default_model: str = "",
+        use_tier_routing: bool = True,
+    ) -> None:
         self.provider_type = provider_type
         self.default_model = default_model
+        self.use_tier_routing = use_tier_routing
 
     def route(self, req: CompletionRequest) -> str:
+        # When tier routing is disabled (e.g. custom proxy/base_url),
+        # always use the configured default_model
+        if not self.use_tier_routing:
+            return self.default_model or "claude-sonnet-4-20250514"
+
         tier = req.metadata.get("tier", "medium")
         rules = self.RULES.get(self.provider_type, [])
         for t, model in rules:

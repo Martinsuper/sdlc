@@ -20,17 +20,17 @@ def kb_root(tmp_path: Path) -> Path:
 class TestMemoryL2OnStageComplete:
     def test_no_kb_root_returns_zero(self) -> None:
         m = MemoryL2(kb_root=None)
-        result = m.on_stage_complete("stage-1", {"status": "SUCCESS"})
+        result = m.on_stage_complete("stage-1", {"status": "COMPLETED"})
         assert result == 0
 
     def test_nonexistent_kb_root_returns_zero(self, tmp_path: Path) -> None:
         m = MemoryL2(kb_root=tmp_path / "nonexistent")
-        result = m.on_stage_complete("stage-1", {"status": "SUCCESS"})
+        result = m.on_stage_complete("stage-1", {"status": "COMPLETED"})
         assert result == 0
 
     def test_empty_result_returns_zero(self, kb_root: Path) -> None:
         m = MemoryL2(kb_root=kb_root)
-        result = m.on_stage_complete("stage-1", {"status": "SUCCESS"})
+        result = m.on_stage_complete("stage-1", {"status": "COMPLETED"})
         assert result == 0
 
     def test_writes_violation_learnings(self, kb_root: Path) -> None:
@@ -59,7 +59,7 @@ class TestMemoryL2OnStageComplete:
     def test_writes_gate_decision_learning(self, kb_root: Path) -> None:
         m = MemoryL2(kb_root=kb_root)
         stage_result = {
-            "status": "SUCCESS",
+            "status": "COMPLETED",
             "gate_decision": {
                 "gate_id": "G001",
                 "action": "block",

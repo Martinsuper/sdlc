@@ -154,6 +154,7 @@ class TestStageCatalogAutoLoadBuiltin:
         from sdlc.stage.catalog import StageCatalog
 
         cat = StageCatalog()
+        cat.load_builtin()
         # The builtin stages directory has 12 YAML files
         assert len(cat.list_stages()) >= 12
         assert cat.has("s-clarify")
@@ -164,6 +165,7 @@ class TestStageCatalogAutoLoadBuiltin:
         from sdlc.stage.catalog import StageCatalog
 
         cat = StageCatalog()
+        cat.load_builtin()
         clarify = cat.get("s-clarify")
         assert clarify.category == "requirement"
         assert clarify.subagent  # Should have a subagent assigned
@@ -429,7 +431,7 @@ class TestGateEngineExceptionIntegration:
                 auto_pass_conditions={"no_violations": True},
             )
         )
-        ctx = {"stage_status": "SUCCESS", "rule_id": "R1"}
+        ctx = {"stage_status": "COMPLETED", "rule_id": "R1"}
         decision = engine.evaluate("build", ctx)
         assert decision is not None
         assert decision.action == GateAction.AUTO_PASS

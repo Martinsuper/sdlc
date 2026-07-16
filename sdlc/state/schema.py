@@ -89,7 +89,7 @@ CREATE VIEW IF NOT EXISTS v_pipeline_summary AS
 SELECT p.id, p.status, p.entry_kind, p.profile_id,
        p.created_at, p.updated_at,
        (SELECT COUNT(*) FROM stages WHERE pipeline_id = p.id) AS stage_count,
-       (SELECT COUNT(*) FROM stages WHERE pipeline_id = p.id AND status='SUCCESS') AS done_count,
+       (SELECT COUNT(*) FROM stages WHERE pipeline_id = p.id AND status='COMPLETED') AS done_count,
        (SELECT COALESCE(SUM(cost_usd), 0) FROM llm_calls WHERE pipeline_id = p.id) AS total_cost
 FROM pipelines p;
 
@@ -106,8 +106,7 @@ GROUP BY DATE(created_at), model;
 
 VALID_TRANSITIONS: dict[str, set[str]] = {
     "PENDING": {"RUNNING", "SKIPPED"},
-    "RUNNING": {"SUCCESS", "FAILED", "PAUSED"},
-    "SUCCESS": set(),
+    "RUNNING": {"COMPLETED", "FAILED", "PAUSED"},
     "FAILED": {"PENDING"},
     "SKIPPED": set(),
     "NEW": {"RUNNING"},

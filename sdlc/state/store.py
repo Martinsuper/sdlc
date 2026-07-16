@@ -40,6 +40,13 @@ class StateStore:
     def _init_schema(self) -> None:
         self.db.executescript(SCHEMA_SQL)
         self.db.execute("PRAGMA journal_mode=WAL")
+        self._migrate_success_to_completed()
+
+    def _migrate_success_to_completed(self) -> None:
+        # Legacy rows used "SUCCESS" as the terminal state; the state machine
+        # now uses "COMPLETED". Idempotent: only matches un-migrated rows.
+        self.db.execute("UPDATE pipelines SET status='COMPLETED' WHERE status='SUCCESS'")
+        self.db.execute("UPDATE stages SET status='COMPLETED' WHERE status='SUCCESS'")
 
     def _read_execute(self, sql: str, params: tuple[Any, ...] = ()) -> sqlite3.Cursor:
         """Execute a read query under the lock for thread safety."""

@@ -134,7 +134,7 @@ async def test_pipeline_happy_path(tmp_path: Path) -> None:
 
     pipeline = state.load_pipeline(result.pipeline_id)
     assert pipeline is not None
-    assert pipeline.status in ("SUCCESS", "PAUSED", "FAILED")
+    assert pipeline.status in ("COMPLETED", "PAUSED", "FAILED")
 
     # Verify audit events were emitted (some events have pipeline_id, some don't)
     pipeline_events = list(audit.query(pipeline_id=result.pipeline_id))
@@ -260,14 +260,14 @@ def test_state_audit_roundtrip(tmp_path: Path) -> None:
             id="test-1-s-clarify",
             pipeline_id="test-1",
             stage_def_id="s-clarify",
-            status="SUCCESS",
+            status="COMPLETED",
             started_at="2026-06-05T10:00:00Z",
             finished_at="2026-06-05T10:03:00Z",
         )
     )
     audit.emit(
         AuditEventType.STAGE_END,
-        {"stage": "s-clarify", "status": "SUCCESS"},
+        {"stage": "s-clarify", "status": "COMPLETED"},
         pipeline_id="test-1",
     )
 
@@ -279,9 +279,9 @@ def test_state_audit_roundtrip(tmp_path: Path) -> None:
     events = list(audit.query(pipeline_id="test-1"))
     assert len(events) == 2
 
-    store.update_pipeline_status("test-1", "SUCCESS")
+    store.update_pipeline_status("test-1", "COMPLETED")
     pipeline = store.load_pipeline("test-1")
-    assert pipeline.status == "SUCCESS"
+    assert pipeline.status == "COMPLETED"
 
 
 # ---------------------------------------------------------------------------
@@ -465,4 +465,4 @@ def test_cli_full_workflow(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> N
 
     # Version
     r = runner.invoke(cli, ["version"])
-    assert "1.0.0" in r.output
+    assert "1.1.0" in r.output

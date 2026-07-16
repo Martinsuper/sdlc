@@ -142,6 +142,8 @@ def run(
                 concurrency=concurrency,
                 overall_timeout=timeout,
                 resume_on_fail=resume_on_fail,
+                only_stages=stages.split(",") if stages else None,
+                skip_stages=skip_stages.split(",") if skip_stages else None,
             )
         )
 

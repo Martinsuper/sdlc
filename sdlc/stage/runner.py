@@ -260,7 +260,7 @@ class StageRunner:
         started_at = now_utc().isoformat()
         total_cost = 0.0
         error = None
-        status = "SUCCESS"
+        status = "COMPLETED"
         artifacts_produced: list[dict[str, Any]] = []
 
         try:
@@ -351,7 +351,7 @@ class StageRunner:
                                 }
                             )
 
-            if status == "SUCCESS":
+            if status == "COMPLETED":
                 for art_dict in artifacts_produced:
                     artifact = Artifact(
                         id=art_dict["id"],
@@ -384,7 +384,7 @@ class StageRunner:
             )
 
         gate_decision = None
-        if self.gate_engine and status == "SUCCESS":
+        if self.gate_engine and status == "COMPLETED":
             gate_context = {
                 "stage_id": stage_def.id,
                 "stage_status": status,
@@ -445,7 +445,7 @@ class StageRunner:
             result = await self.run_stage(stage_def, pipeline_id, context)
             results.append(result)
 
-            if result["status"] == "SUCCESS":
+            if result["status"] == "COMPLETED":
                 completed_ids.add(node.id)
             elif (
                 result.get("gate_decision") and result["gate_decision"].action == GateAction.BLOCK

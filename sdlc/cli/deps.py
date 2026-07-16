@@ -96,9 +96,14 @@ def build_llm_client(config: LLMConfig | SdlcConfig) -> MultiLLMClient:
     primary = ProviderFactory.create(llm_config)
     fallback = ProviderFactory.create_fallback(llm_config)
 
+    # Disable tier routing when using a custom base_url (proxy/compatible endpoint),
+    # since the proxy may not support the standard model names in RULES.
+    use_tier_routing = not bool(llm_config.base_url)
+
     router = ModelRouter(
         provider_type=llm_config.provider,
         default_model=llm_config.model,
+        use_tier_routing=use_tier_routing,
     )
     return MultiLLMClient(primary=primary, fallback=fallback, router=router)
 

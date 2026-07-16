@@ -158,7 +158,7 @@ class TestShouldTrigger:
 
     def test_on_failure_not_triggered(self):
         gd = GateDef(id="g", name="g", after_stage="s", trigger=GateTrigger.ON_FAILURE)
-        assert should_trigger(gd, {"stage_status": "SUCCESS"}) is False
+        assert should_trigger(gd, {"stage_status": "COMPLETED"}) is False
 
     def test_on_stage_end_match(self):
         gd = GateDef(id="g", name="g", after_stage="build", trigger=GateTrigger.ON_STAGE_END)
@@ -226,7 +226,7 @@ class TestGateEngine:
                 auto_pass_conditions={"no_violations": True},
             )
         )
-        decision = engine.evaluate("build", {"stage_status": "SUCCESS"})
+        decision = engine.evaluate("build", {"stage_status": "COMPLETED"})
         assert decision is not None
         assert decision.action == GateAction.AUTO_PASS
 
@@ -321,7 +321,7 @@ class TestGateEngine:
                 auto_pass_conditions={"no_failures": True},
             )
         )
-        decision = engine.evaluate("build", {"stage_status": "SUCCESS"})
+        decision = engine.evaluate("build", {"stage_status": "COMPLETED"})
         assert decision is not None
         assert decision.action == GateAction.AUTO_PASS
         assert decision.gate_id == "g2"
@@ -662,7 +662,7 @@ class TestGate6CodeQualityIntegration:
                 block_conditions={"on_must_violation": True},
             )
         )
-        decision = engine.evaluate("s-implement", {"stage_status": "SUCCESS"})
+        decision = engine.evaluate("s-implement", {"stage_status": "COMPLETED"})
         assert decision is not None
         assert decision.action == GateAction.AUTO_PASS
 

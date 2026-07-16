@@ -139,6 +139,7 @@ class TestStageStartup:
         from sdlc.stage.catalog import StageCatalog
 
         catalog = StageCatalog()
+        catalog.load_builtin()
         elapsed_ms = (time.monotonic() - start) * 1000
         assert len(catalog.list_stages()) > 0
         assert elapsed_ms < 100, f"Stage catalog load took {elapsed_ms:.0f}ms (limit: 100ms)"

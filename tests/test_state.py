@@ -35,10 +35,10 @@ class TestSchemaAndInit:
 
     def test_valid_transitions(self):
         assert "RUNNING" in VALID_TRANSITIONS["PENDING"]
-        assert "SUCCESS" in VALID_TRANSITIONS["RUNNING"]
+        assert "COMPLETED" in VALID_TRANSITIONS["RUNNING"]
         assert "FAILED" in VALID_TRANSITIONS["RUNNING"]
         assert "PENDING" in VALID_TRANSITIONS["FAILED"]
-        assert len(VALID_TRANSITIONS["SUCCESS"]) == 0
+        assert len(VALID_TRANSITIONS["COMPLETED"]) == 0
         assert len(VALID_TRANSITIONS["CANCELLED"]) == 0
 
 
@@ -88,7 +88,7 @@ class TestPipeline:
                 id="s1",
                 pipeline_id="p1",
                 stage_def_id="sd1",
-                status="SUCCESS",
+                status="COMPLETED",
                 started_at=datetime.now(UTC).isoformat(),
             )
         )
@@ -102,21 +102,21 @@ class TestStage:
             id="s1",
             pipeline_id="p1",
             stage_def_id="sd1",
-            status="SUCCESS",
+            status="COMPLETED",
             started_at=datetime.now(UTC).isoformat(),
         )
         store_with_pipeline.save_stage_result(result)
         loaded = store_with_pipeline.load_stage_result("p1", "s1")
         assert loaded is not None
         assert loaded.stage_def_id == "sd1"
-        assert loaded.status == "SUCCESS"
+        assert loaded.status == "COMPLETED"
 
     def test_load_missing_returns_none(self, store_with_pipeline):
         assert store_with_pipeline.load_stage_result("p1", "missing") is None
 
     def test_list_stage_results(self, store_with_pipeline):
         store_with_pipeline.save_stage_result(
-            StageResult(id="s1", pipeline_id="p1", stage_def_id="sd1", status="SUCCESS")
+            StageResult(id="s1", pipeline_id="p1", stage_def_id="sd1", status="COMPLETED")
         )
         store_with_pipeline.save_stage_result(
             StageResult(id="s2", pipeline_id="p1", stage_def_id="sd2", status="RUNNING")
@@ -293,7 +293,7 @@ class TestSnapshot:
     def test_take_snapshot_with_stages(self, store_with_pipeline, tmp_dir):
         snap_dir = tmp_dir / "snaps"
         store_with_pipeline.save_stage_result(
-            StageResult(id="s1", pipeline_id="p1", stage_def_id="sd1", status="SUCCESS")
+            StageResult(id="s1", pipeline_id="p1", stage_def_id="sd1", status="COMPLETED")
         )
         snapshot = take_snapshot(store_with_pipeline, "p1", snap_dir)
         assert snapshot["stage_id"] == "sd1"
@@ -318,7 +318,7 @@ class TestSnapshot:
                     id=f"s{i}",
                     pipeline_id="p1",
                     stage_def_id=f"sd{i}",
-                    status="SUCCESS",
+                    status="COMPLETED",
                 )
             )
             take_snapshot(store_with_pipeline, "p1", snap_dir)

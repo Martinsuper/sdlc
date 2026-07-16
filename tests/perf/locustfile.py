@@ -234,7 +234,7 @@ class SDLCPerfUser(User):
             return
         context = {
             "pipeline_id": "perf-pipeline",
-            "stage_status": "SUCCESS",
+            "stage_status": "COMPLETED",
             "rule_violations": [],
         }
         start = time.perf_counter()

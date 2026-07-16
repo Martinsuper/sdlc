@@ -50,19 +50,31 @@ class ProviderFactory:
         """
         provider_type = config.provider.lower().strip()
 
-        # Check if it's a preset ID
-        preset = get_preset(provider_type)
-        if preset:
-            api_key = ProviderFactory._resolve_api_key(
-                preset.api_key_env, preset.name
-            )
-            return ProviderFactory._from_preset(preset, api_key, config.timeout)
+        # Check if it's a preset ID -- but only if the user hasn't overridden
+        # base_url or api_key_env, which signals they want custom configuration
+        # rather than the preset defaults.
+        if not config.base_url or config.base_url == (get_preset(provider_type).base_url if get_preset(provider_type) else None):
+            preset = get_preset(provider_type)
+            if preset:
+                api_key = ProviderFactory._resolve_api_key(
+                    preset.api_key_env, preset.name
+                )
+                return ProviderFactory._from_preset(preset, api_key, config.timeout)
 
         # Standard providers
         if provider_type == "anthropic":
             api_key = ProviderFactory._resolve_api_key(config.api_key_env, "Anthropic")
             return AnthropicProvider(api_key=api_key, timeout=int(config.timeout))
         elif provider_type == "openai":
+            # If base_url is set, use OpenAI-compatible provider instead
+            # (OpenAIProvider doesn't support custom base_url)
+            if config.base_url:
+                api_key = ProviderFactory._resolve_api_key(config.api_key_env, "OpenAI-compatible")
+                return OpenAICompatibleProvider(
+                    api_key=api_key,
+                    base_url=config.base_url,
+                    timeout=int(config.timeout),
+                )
             api_key = ProviderFactory._resolve_api_key(config.api_key_env, "OpenAI")
             return OpenAIProvider(api_key=api_key, timeout=int(config.timeout))
         elif provider_type == "openai-compatible":

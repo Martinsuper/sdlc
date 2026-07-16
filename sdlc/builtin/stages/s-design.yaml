@@ -9,6 +9,7 @@ required_artifacts:
 produces_artifacts:
   - arch.md
   - interfaces.yaml
+output_template: templates/backend-design.md
 pre_kb_load:
   - architecture/component-catalog.md
   - architecture/dependency-graph.md

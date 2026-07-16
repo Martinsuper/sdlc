@@ -196,7 +196,7 @@ class TestStageRunner:
         state.save_pipeline("pipe-1", "issue", "default")
         sd = _make_stage_def()
         result = await runner.run_stage(sd, "pipe-1")
-        assert result["status"] == "SUCCESS"
+        assert result["status"] == "COMPLETED"
         assert result["stage_id"] == "s-clarify"
         assert result["cost_usd"] == 0.05
         assert len(result["artifacts"]) == 1
@@ -219,7 +219,7 @@ class TestStageRunner:
         await runner.run_stage(sd, "pipe-3")
         sr = state.load_stage_result("pipe-3", f"pipe-3-{sd.id}")
         assert sr is not None
-        assert sr.status == "SUCCESS"
+        assert sr.status == "COMPLETED"
         assert sr.stage_def_id == "s-clarify"
 
     @pytest.mark.asyncio
@@ -254,8 +254,8 @@ class TestStageRunner:
         n1 = StageNode(id="s1", stage_def=sd1)
         n2 = StageNode(id="s2", stage_def=sd2, depends_on=["s1"])
         results = await runner.run_pipeline_stages([n1, n2], "pipe-6")
-        assert results[0]["status"] == "SUCCESS"
-        assert results[1]["status"] == "SUCCESS"
+        assert results[0]["status"] == "COMPLETED"
+        assert results[1]["status"] == "COMPLETED"
         assert pool.invoke.call_count == 2
 
     @pytest.mark.asyncio
@@ -312,7 +312,7 @@ class TestStageRunner:
         )
         sd = _make_stage_def()
         result = await runner.run_stage(sd, "pipe-9")
-        assert result["status"] == "SUCCESS"
+        assert result["status"] == "COMPLETED"
 
     @pytest.mark.asyncio
     async def test_run_pipeline_stages_block_stops_pipeline(self, state, audit, pool):

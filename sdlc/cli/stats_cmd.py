@@ -26,8 +26,8 @@ def stats(since, by_model, by_stage, as_json):
         return
 
     total = len(pipelines)
-    completed = sum(1 for p in pipelines if p.status == "completed")
-    failed = sum(1 for p in pipelines if p.status == "failed")
+    completed = sum(1 for p in pipelines if p.status.upper() == "COMPLETED")
+    failed = sum(1 for p in pipelines if p.status.upper() == "FAILED")
     total_cost = sum(p.total_cost for p in pipelines)
 
     # Query cost-by-model from llm_calls table

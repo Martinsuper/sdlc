@@ -273,7 +273,7 @@ class TestRunCoordinator:
         await coordinator.run("开发一个新功能")
         pipelines = state.list_pipelines()
         assert len(pipelines) >= 1
-        assert pipelines[0].status == "SUCCESS"
+        assert pipelines[0].status == "COMPLETED"
 
     @pytest.mark.asyncio
     async def test_run_with_explicit_profile(self, coordinator, state, audit):

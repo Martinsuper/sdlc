@@ -13,6 +13,7 @@ def stage_list(category):
     from sdlc.stage.catalog import StageCatalog
 
     catalog = StageCatalog()
+    catalog.load_builtin()
     stages = catalog.list_stages()
     if category:
         stages = [s for s in stages if s.category == category]
@@ -43,6 +44,7 @@ def stage_show(stage_id):
     from sdlc.stage.catalog import StageCatalog, StageNotFoundError
 
     catalog = StageCatalog()
+    catalog.load_builtin()
     try:
         s = catalog.get(stage_id)
     except StageNotFoundError:

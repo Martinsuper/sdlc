@@ -107,15 +107,24 @@ class RunCoordinator:
 
         context = {"input": input_text, "severity": profile.severity, "pipeline_id": pipeline.id}
 
+        # Filter stages based on only_stages / skip_stages options
+        only_stages = opts.get("only_stages")
+        skip_stages = opts.get("skip_stages")
+        stages_to_run = pipeline.stages
+        if only_stages:
+            stages_to_run = [s for s in stages_to_run if s.id in only_stages]
+        if skip_stages:
+            stages_to_run = [s for s in stages_to_run if s.id not in skip_stages]
+
         try:
             # Choose execution mode based on concurrency
             if concurrency > 1:
                 stage_results = await self._run_pipeline_stages_concurrent(
-                    pipeline.stages, pipeline.id, context, concurrency
+                    stages_to_run, pipeline.id, context, concurrency
                 )
             else:
                 stage_results = await self.stage_runner.run_pipeline_stages(
-                    pipeline.stages, pipeline.id, context
+                    stages_to_run, pipeline.id, context
                 )
 
             # Track costs if CostTracker is provided
@@ -142,7 +151,7 @@ class RunCoordinator:
                         pipeline_id=pipeline.id,
                     )
 
-            all_success = all(r["status"] == "SUCCESS" for r in stage_results)
+            all_success = all(r["status"] == "COMPLETED" for r in stage_results)
             has_failed = any(r["status"] == "FAILED" for r in stage_results)
 
             if has_failed:
@@ -179,7 +188,7 @@ class RunCoordinator:
 
         # Map logical final_status to valid pipeline state transitions
         pipeline_status_map = {
-            "completed": "SUCCESS",
+            "completed": "COMPLETED",
             "failed": "FAILED",
             "paused": "PAUSED",
         }
@@ -321,7 +330,7 @@ class RunCoordinator:
                 if gate_decision and isinstance(gate_decision, GateDecision):
                     is_block = gate_decision.action == GateAction.BLOCK
 
-                if result["status"] == "SUCCESS" and not is_block:
+                if result["status"] == "COMPLETED" and not is_block:
                     completed_ids.add(result["stage_id"])
                 else:
                     # Failure or gate block: skip remaining pending stages

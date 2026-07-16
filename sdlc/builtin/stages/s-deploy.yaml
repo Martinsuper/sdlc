@@ -8,6 +8,7 @@ required_artifacts:
   - package
 produces_artifacts:
   - deploy-report
+output_template: templates/release-checklist.md
 pre_kb_load: []
 post_kb_update: []
 timeout: 3600

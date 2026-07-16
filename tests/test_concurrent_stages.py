@@ -129,7 +129,7 @@ class TestConcurrentStageExecution:
             await asyncio.sleep(0.01)  # Simulate work
             return {
                 "stage_id": stage_def.id,
-                "status": "SUCCESS",
+                "status": "COMPLETED",
                 "artifacts": [],
                 "cost_usd": 0.0,
                 "error": None,
@@ -143,7 +143,7 @@ class TestConcurrentStageExecution:
         )
 
         assert len(results) == 5
-        assert all(r["status"] == "SUCCESS" for r in results)
+        assert all(r["status"] == "COMPLETED" for r in results)
         # All stages should have been executed
         assert set(execution_log) == {"design", "code", "test-a", "test-b", "deploy"}
 
@@ -171,7 +171,7 @@ class TestConcurrentStageExecution:
             execution_order.append(stage_def.id)
             return {
                 "stage_id": stage_def.id,
-                "status": "SUCCESS",
+                "status": "COMPLETED",
                 "artifacts": [],
                 "cost_usd": 0.0,
                 "error": None,
@@ -185,7 +185,7 @@ class TestConcurrentStageExecution:
         )
 
         assert len(results) == 5
-        assert all(r["status"] == "SUCCESS" for r in results)
+        assert all(r["status"] == "COMPLETED" for r in results)
 
     @pytest.mark.asyncio
     async def test_stage_failure_skips_remaining(
@@ -217,7 +217,7 @@ class TestConcurrentStageExecution:
                 }
             return {
                 "stage_id": stage_def.id,
-                "status": "SUCCESS",
+                "status": "COMPLETED",
                 "artifacts": [],
                 "cost_usd": 0.0,
                 "error": None,
@@ -231,7 +231,7 @@ class TestConcurrentStageExecution:
         )
 
         # design should succeed, code fails, rest should be skipped
-        assert results[0]["status"] == "SUCCESS"  # design
+        assert results[0]["status"] == "COMPLETED"  # design
         assert results[1]["status"] == "FAILED"   # code
         # Remaining stages should be skipped
         for r in results[2:]:
@@ -288,7 +288,7 @@ class TestConcurrentStageExecution:
             await asyncio.sleep(0.05)
             return {
                 "stage_id": stage_def.id,
-                "status": "SUCCESS",
+                "status": "COMPLETED",
                 "artifacts": [],
                 "cost_usd": 0.0,
                 "error": None,
@@ -334,7 +334,7 @@ class TestConcurrentStageExecution:
         async def mock_run_stage(stage_def, pid, ctx=None):
             return {
                 "stage_id": stage_def.id,
-                "status": "SUCCESS",
+                "status": "COMPLETED",
                 "artifacts": [],
                 "cost_usd": 0.0,
                 "error": None,
@@ -349,7 +349,7 @@ class TestConcurrentStageExecution:
         )
 
         assert len(results) == 5
-        assert all(r["status"] == "SUCCESS" for r in results)
+        assert all(r["status"] == "COMPLETED" for r in results)
 
 
 class TestRunCoordinatorConcurrency:
@@ -375,7 +375,7 @@ class TestRunCoordinatorConcurrency:
             return [
                 {
                     "stage_id": n.id,
-                    "status": "SUCCESS",
+                    "status": "COMPLETED",
                     "artifacts": [],
                     "cost_usd": 0.0,
                     "error": None,
