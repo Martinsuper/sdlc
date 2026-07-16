@@ -1,0 +1,56 @@
+name: Smoke (main-path E2E gate)
+
+# M-D1: prove the end-to-end main path actually runs a pipeline to completion
+# against a real (local) model. This is the release gate the GA build lacked —
+# green unit tests hid a 100%-red main path. Uses local Ollama so it is free,
+# reproducible, and needs no paid API key.
+
+on:
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch: {}
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Install and start Ollama
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          nohup ollama serve > ollama.log 2>&1 &
+          # wait for the daemon
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:11434/api/tags && break || sleep 2
+          done
+          ollama pull qwen2:0.5b
+
+      - name: Configure sdlc to use local Ollama
+        run: |
+          mkdir -p .sdlc/ext
+          cat > .sdlc/ext/config.yaml <<'EOF'
+          llm:
+            provider: openai-compatible
+            model: qwen2:0.5b
+            base_url: http://localhost:11434/v1
+            api_key_env: OLLAMA_KEY
+            temperature: null
+          EOF
+
+      - name: Run smoke gate (must not silently pass)
+        env:
+          OLLAMA_KEY: "ollama"      # Ollama ignores the key; smoke_test just needs it set
+          SDLC_SMOKE_REQUIRE: "1"   # turn "model unreachable" into a hard failure
+        run: uv run pytest -m smoke -q
