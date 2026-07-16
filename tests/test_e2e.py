@@ -325,7 +325,7 @@ def test_sdlc_doctor_passes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> 
     (tmp_path / ".sdlc").mkdir(exist_ok=True)
 
     runner = CliRunner()
-    result = runner.invoke(cli, ["doctor"])
+    result = runner.invoke(cli, ["doctor", "--no-check-llm"])
     # Should pass (Python >= 3.11, uv may or may not be installed)
     assert "Python >= 3.11" in result.output
 

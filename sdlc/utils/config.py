@@ -10,7 +10,7 @@ class LLMConfig(BaseModel):
     api_key_env: str = "ANTHROPIC_API_KEY"
     base_url: str | None = None
     max_tokens: int = Field(gt=0, default=8192)
-    temperature: float = Field(ge=0.0, le=2.0, default=0.7)
+    temperature: float | None = Field(default=0.7, ge=0.0, le=2.0)
     timeout: float = Field(gt=0, default=120.0)
     max_cost_usd: float = Field(ge=0, default=5.0)
     # Fallback provider configuration

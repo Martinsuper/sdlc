@@ -44,18 +44,14 @@ def llm_test():
 
     click.echo("Testing LLM providers...\n")
 
-    # Test current provider
+    # Test current provider — send a real minimal completion, not just init
     click.echo(f"[1] Current: {cfg.llm.provider} ({cfg.llm.model})")
     api_key = os.environ.get(cfg.llm.api_key_env, "")
     if api_key:
-        try:
-            from sdlc.llm.provider_factory import ProviderFactory
+        from sdlc.llm.smoke import smoke_test
 
-            provider = ProviderFactory.create(cfg.llm)
-            info = provider.model_info(cfg.llm.model)
-            click.echo(f"    OK: Provider initialized: {info.name} (context={info.max_context})")
-        except Exception as e:
-            click.echo(f"    FAIL: {e}")
+        ok, detail = smoke_test(cfg.llm)
+        click.echo(f"    {'OK' if ok else 'FAIL'}: {detail}")
     else:
         click.echo(f"    SKIP: API key not set ({cfg.llm.api_key_env})")
 

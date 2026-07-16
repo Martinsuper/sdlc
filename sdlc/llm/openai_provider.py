@@ -36,9 +36,10 @@ class OpenAIProvider:
             kwargs: dict[str, Any] = {
                 "model": req.model,
                 "messages": oai_msgs,
-                "max_tokens": req.max_tokens,
-                "temperature": req.temperature if req.temperature is not None else None,
+                "max_tokens": req.max_tokens or 16384,
             }
+            if req.temperature is not None:
+                kwargs["temperature"] = req.temperature
             if req.stop_sequences:
                 kwargs["stop"] = req.stop_sequences
 

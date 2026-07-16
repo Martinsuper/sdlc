@@ -199,11 +199,23 @@ class RunCoordinator:
             pipeline_id=pipeline.id,
         )
 
+        # Aggregate failed-stage errors so PipelineResult.error is meaningful on
+        # the normal (non-exception) failure path, not just the except path below.
+        pipeline_error: str | None = None
+        if final_status == "failed":
+            errs = [
+                f"[{r.get('stage_id', '?')}] {r.get('error')}"
+                for r in stage_results
+                if r.get("status") == "FAILED" and r.get("error")
+            ]
+            pipeline_error = "; ".join(errs) if errs else None
+
         return PipelineResult(
             pipeline_id=pipeline.id,
             status=final_status,
             stage_results=stage_results,
             total_cost_usd=total_cost,
+            error=pipeline_error,
         )
 
     async def _run_pipeline_stages_concurrent(

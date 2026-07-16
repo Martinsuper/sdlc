@@ -9,6 +9,7 @@ Performance optimizations:
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import re
 import time
@@ -382,6 +383,21 @@ class StageRunner:
                 {"stage": stage_def.id, "error": error},
                 pipeline_id=pipeline_id,
             )
+            # Persist the failure to state so `resume`/`status` can read the
+            # real error back (the save inside the try is skipped when the LLM
+            # call raises, which previously left stages.error empty in the DB).
+            with contextlib.suppress(Exception):
+                self.state.save_stage_result(
+                    StateStageResult(
+                        id=f"{pipeline_id}-{stage_def.id}",
+                        pipeline_id=pipeline_id,
+                        stage_def_id=stage_def.id,
+                        status=status,
+                        started_at=started_at,
+                        finished_at=now_utc().isoformat(),
+                        error=error,
+                    )
+                )
 
         gate_decision = None
         if self.gate_engine and status == "COMPLETED":

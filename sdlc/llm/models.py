@@ -46,8 +46,8 @@ class CompletionRequest(BaseModel):
     messages: list[Message] = []
     tools: list[Tool] = []
     system: str | None = None
-    max_tokens: int = 16384
-    temperature: float = 0.7
+    max_tokens: int | None = None
+    temperature: float | None = None
     top_p: float = 1.0
     stop_sequences: list[str] = []
     metadata: dict[str, Any] = Field(default_factory=dict)

@@ -105,7 +105,13 @@ def build_llm_client(config: LLMConfig | SdlcConfig) -> MultiLLMClient:
         default_model=llm_config.model,
         use_tier_routing=use_tier_routing,
     )
-    return MultiLLMClient(primary=primary, fallback=fallback, router=router)
+    return MultiLLMClient(
+        primary=primary,
+        fallback=fallback,
+        router=router,
+        temperature=llm_config.temperature,
+        max_tokens=llm_config.max_tokens,
+    )
 
 
 def build_deps(config: SdlcConfig | None = None) -> DependencyContainer:

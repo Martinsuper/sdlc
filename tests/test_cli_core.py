@@ -142,7 +142,8 @@ class TestInitCommand:
         result = runner.invoke(init, [str(tmp_path)])
         assert result.exit_code == 0
         assert (tmp_path / ".sdlc").is_dir()
-        assert (tmp_path / ".sdlc" / "config.toml").exists()
+        # init writes the project config to the path load_config() actually reads
+        assert (tmp_path / ".sdlc" / "ext" / "config.yaml").exists()
 
     def test_creates_kb_structure(self, tmp_path: Path) -> None:
         from sdlc.cli.init_cmd import init

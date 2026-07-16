@@ -67,8 +67,10 @@ def test_completion_request_defaults():
     assert req.messages == []
     assert req.tools == []
     assert req.system is None
-    assert req.max_tokens == 16384
-    assert req.temperature == 0.7
+    # max_tokens/temperature default to None ("unset"): MultiLLMClient injects
+    # the configured values, and providers omit temperature entirely when None.
+    assert req.max_tokens is None
+    assert req.temperature is None
     assert req.top_p == 1.0
     assert req.stop_sequences == []
     assert req.metadata == {}

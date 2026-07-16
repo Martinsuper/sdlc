@@ -5,6 +5,7 @@ from sdlc.llm.anthropic_provider import AnthropicProvider, LLMRateLimitError, LL
 from sdlc.llm.models import CompletionRequest, CompletionResponse, ModelInfo
 from sdlc.llm.openai_compatible import OpenAICompatibleProvider
 from sdlc.llm.openai_provider import OpenAIProvider
+from sdlc.utils.exceptions import LLMError
 
 
 class ModelRouter:
@@ -51,30 +52,54 @@ class MultiLLMClient:
         primary: AnthropicProvider | OpenAIProvider | OpenAICompatibleProvider,
         fallback: AnthropicProvider | OpenAIProvider | OpenAICompatibleProvider | None = None,
         router: ModelRouter | None = None,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> None:
         self.primary = primary
         self.fallback = fallback
         self.router = router or ModelRouter()
+        self.temperature = temperature
+        self.max_tokens = max_tokens
+
+    def _prepare(self, req: CompletionRequest) -> CompletionRequest:
+        """Route the model and inject configured defaults for any field the
+        caller left unset.
+
+        - ``model`` is rewritten by the router.
+        - ``max_tokens`` falls back to the configured value, then a hard
+          default (providers require it).
+        - ``temperature`` falls back to the configured value; if that is also
+          None it stays None and providers omit it entirely (required for
+          Anthropic thinking/adaptive gateway models that reject any explicit
+          temperature).
+        """
+        update: dict[str, object] = {}
+        actual_model = self.router.route(req)
+        if actual_model:
+            update["model"] = actual_model
+        if req.max_tokens is None:
+            update["max_tokens"] = self.max_tokens if self.max_tokens is not None else 16384
+        if req.temperature is None and self.temperature is not None:
+            update["temperature"] = self.temperature
+        return req.model_copy(update=update) if update else req
 
     async def complete(self, req: CompletionRequest) -> CompletionResponse:
-        actual_model = self.router.route(req)
-        routed_req = req.model_copy(update={"model": actual_model}) if actual_model else req
+        prepared = self._prepare(req)
         try:
-            return await self.primary.complete(routed_req)
-        except (LLMRateLimitError, LLMTimeoutError):
+            return await self.primary.complete(prepared)
+        except (LLMRateLimitError, LLMTimeoutError, LLMError):
             if self.fallback is not None:
-                return await self.fallback.complete(routed_req)
+                return await self.fallback.complete(prepared)
             raise
 
     async def stream(self, req: CompletionRequest) -> AsyncIterator[str]:
-        actual_model = self.router.route(req)
-        routed_req = req.model_copy(update={"model": actual_model}) if actual_model else req
+        prepared = self._prepare(req)
         try:
-            async for chunk in self.primary.stream(routed_req):
+            async for chunk in self.primary.stream(prepared):
                 yield chunk
-        except (LLMRateLimitError, LLMTimeoutError):
+        except (LLMRateLimitError, LLMTimeoutError, LLMError):
             if self.fallback is not None:
-                async for chunk in self.fallback.stream(routed_req):
+                async for chunk in self.fallback.stream(prepared):
                     yield chunk
             else:
                 raise

@@ -24,6 +24,39 @@ def cli(ctx: click.Context, debug_timing: bool) -> None:
     ctx.ensure_object(dict)
     if debug_timing:
         ctx.obj["_start_time"] = time.monotonic()
+    _warn_if_shadowed()
+
+
+def _warn_if_shadowed() -> None:
+    """Warn when the running sdlc package differs from the installed one.
+
+    Running `python -m sdlc` (or `python -c`) from a directory that contains a
+    stale `sdlc/` package copy makes Python import that copy (sys.path[0] = CWD),
+    silently executing old code. Detect this by comparing the imported package
+    version against the installed distribution's version; a mismatch means the
+    loaded package is shadowing the installed one.
+    """
+    try:
+        from importlib.metadata import version as dist_version
+
+        from sdlc import __version__ as loaded_version
+
+        installed = dist_version("sdlc")
+        if installed != loaded_version:
+            import os
+
+            import sdlc
+
+            pkg_dir = os.path.dirname(os.path.abspath(sdlc.__file__ or ""))
+            click.echo(
+                f"warning: running sdlc {loaded_version} from {pkg_dir}, but the "
+                f"installed version is {installed}. A stale 'sdlc/' package in the "
+                f"current directory is shadowing the install. Run from another "
+                f"directory, or use the 'sdlc' command rather than 'python -m sdlc'.",
+                err=True,
+            )
+    except Exception:
+        pass
 
 
 _SENTINEL = object()
@@ -128,5 +161,6 @@ _lazy_add_command(cli, "sdlc.cli.run_cmd", "run")
 _lazy_add_command(cli, "sdlc.cli.stage_cmd", "stage")
 _lazy_add_command(cli, "sdlc.cli.stats_cmd", "stats")
 _lazy_add_command(cli, "sdlc.cli.status_cmd", "status")
+_lazy_add_command(cli, "sdlc.cli.template_cmd", "template")
 _lazy_add_command(cli, "sdlc.cli.trace_cmd", "trace")
 _lazy_add_command(cli, "sdlc.cli.version_cmd", "version")

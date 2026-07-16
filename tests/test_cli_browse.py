@@ -15,7 +15,8 @@ def test_version():
 
 def test_doctor():
     runner = CliRunner()
-    result = runner.invoke(cli, ["doctor"])
+    # --no-check-llm keeps doctor deterministic/offline for CI
+    result = runner.invoke(cli, ["doctor", "--no-check-llm"])
     assert result.exit_code == 0
     assert "Python >= 3.11" in result.output
     assert "All checks passed" in result.output

@@ -151,6 +151,22 @@ def run(
         click.echo(f"  Stages: {len(result.stage_results)}")
         click.echo(f"  Cost: ${result.total_cost_usd:.4f}")
 
+        # Surface real stage errors on failure (previously only in audit.jsonl)
+        if result.status != "completed":
+            failed = [
+                r
+                for r in result.stage_results
+                if r.get("status") in ("FAILED", "SKIPPED") and r.get("error")
+            ]
+            if failed:
+                click.echo("\nFailed stages:", err=True)
+                for r in failed:
+                    click.echo(f"  [{r.get('stage_id', '?')}] {r.get('error')}", err=True)
+            elif result.error:
+                click.echo(f"\nError: {result.error}", err=True)
+            if result.status == "failed":
+                raise SystemExit(1)
+
     except KeyboardInterrupt:
         click.echo("\nPipeline interrupted by user")
         raise SystemExit(9) from None

@@ -56,11 +56,12 @@ class AnthropicProvider:
             tools_param = [t.model_dinternal-monitoring() for t in req.tools] or None
             kwargs: dict[str, Any] = {
                 "model": req.model,
-                "max_tokens": req.max_tokens,
-                "temperature": req.temperature,
+                "max_tokens": req.max_tokens or 16384,
                 "messages": raw_msgs,
                 "tools": tools_param,
             }
+            if req.temperature is not None:
+                kwargs["temperature"] = req.temperature
             if req.system:
                 kwargs["system"] = req.system
             if req.stop_sequences:
@@ -93,7 +94,7 @@ class AnthropicProvider:
 
             kwargs: dict[str, Any] = {
                 "model": req.model,
-                "max_tokens": req.max_tokens,
+                "max_tokens": req.max_tokens or 16384,
                 "messages": raw_msgs,
             }
             if req.temperature is not None:
