@@ -6,15 +6,35 @@ from typing import Any
 from sdlc.audit.events import AuditEventType
 from sdlc.audit.logger import AuditLogger
 from sdlc.llm.client import MultiLLMClient
-from sdlc.llm.models import CompletionRequest, ContentBlock, Message, Role
+from sdlc.llm.cost import CostTracker
+from sdlc.llm.models import CompletionRequest, ContentBlock, Message, Role, Tool
 from sdlc.subagent.models import Subagent, SubagentResult, SubagentTask
 from sdlc.subagent.registry import SubagentRegistry
-from sdlc.utils.paths import ensure_dir
+from sdlc.subagent.tools import ToolContext, ToolRegistry, default_registry
 
 _DANGEROUS_ASK_KEYWORDS = frozenset({
     "deploy", "delete", "remove", "destroy", "drop", "truncate",
     "reset", "force", "overwrite", "purge", "wipe",
 })
+
+# ask_user is handled inline (it needs the pool's interaction policy), so it is
+# not part of ToolRegistry. Its schema is still offered to agents that grant it.
+_ASK_USER_SCHEMA = {
+    "name": "ask_user",
+    "description": "Ask the user a question and wait for a response.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "question": {"type": "string", "description": "The question to ask the user."},
+            "options": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "List of option strings for the user to choose from.",
+            },
+        },
+        "required": ["question"],
+    },
+}
 
 
 class SubagentPool:
@@ -23,10 +43,26 @@ class SubagentPool:
         registry: SubagentRegistry,
         llm: MultiLLMClient,
         audit: AuditLogger | None = None,
+        tools: ToolRegistry | None = None,
+        cost_tracker: CostTracker | None = None,
     ) -> None:
         self.registry = registry
         self.llm = llm
         self.audit = audit
+        # Default registry gives every agent access to the built-in toolset,
+        # still gated per-agent by its `tools` allow-list at execution time.
+        self.tools = tools if tools is not None else default_registry()
+        self.cost_tracker = cost_tracker
+
+    def _resolve_tool_schemas(self, agent: Subagent) -> list[Tool]:
+        """Build the LLM tool list from the agent's granted tool names.
+
+        Combines registry-backed tools with the inline ask_user schema, so the
+        model is offered exactly the tools the agent is allowed to call."""
+        schemas = self.tools.resolve_schemas(agent.tools)
+        if "ask_user" in agent.tools:
+            schemas.append(_ASK_USER_SCHEMA)
+        return [Tool(**s) for s in schemas]
 
     async def invoke(self, agent_id: str, task: SubagentTask) -> SubagentResult:
         agent = self.registry.get(agent_id)
@@ -41,6 +77,7 @@ class SubagentPool:
             req = CompletionRequest(
                 model=agent.model,
                 messages=messages,
+                tools=self._resolve_tool_schemas(agent),
                 system=agent.system_addon or None,
                 metadata={
                     "pipeline_id": task.pipeline_id,
@@ -165,6 +202,28 @@ class SubagentPool:
             ) from None
         return resolved
 
+    def _build_tool_context(self, task: SubagentTask, agent: Subagent) -> ToolContext:
+        """Assemble the security/observability context for a tool call.
+
+        MCP-server and skill whitelists are read from the agent config first
+        (per-agent grants) and then the task context, defaulting to empty
+        (deny-all) so shell/mcp/skill stay least-privilege."""
+        ctx_data = task.context or {}
+        servers = set(getattr(agent, "mcp_servers", None) or [])
+        servers |= set(ctx_data.get("mcp_servers", []) or [])
+        skills = set(getattr(agent, "skills", None) or [])
+        skills |= set(ctx_data.get("skills", []) or [])
+        return ToolContext(
+            project_root=self._get_project_root(task),
+            pipeline_id=task.pipeline_id,
+            stage_id=task.stage_id,
+            agent_id=agent.id,
+            audit=self.audit,
+            cost_tracker=self.cost_tracker,
+            server_whitelist=servers,
+            skill_whitelist=skills,
+        )
+
     async def _execute_tool(
         self, tool_call: ContentBlock, task: SubagentTask, agent: Subagent
     ) -> str:
@@ -173,72 +232,37 @@ class SubagentPool:
         if tool_name not in agent.tools:
             return f"Error: tool '{tool_name}' is not allowed for agent {agent.id}"
 
-        project_root = self._get_project_root(task)
+        # ask_user is handled inline: it needs the pool's non-interactive policy
+        # (dangerous-keyword guard), not a registry tool.
+        if tool_name == "ask_user":
+            return self._handle_ask_user(tool_input)
 
-        if tool_name == "read":
-            path = tool_input.get("path", "")
-            try:
-                safe_path = self._validate_path(path, project_root)
-                return safe_path.read_text(encoding="utf-8")
-            except ValueError as e:
-                return f"Error: {e}"
-            except Exception as e:
-                return f"Error reading {path}: {e}"
-        elif tool_name == "write":
-            path = tool_input.get("path", "")
-            content = tool_input.get("content", "")
-            try:
-                safe_path = self._validate_path(path, project_root)
-                ensure_dir(safe_path.parent)
-                safe_path.write_text(content, encoding="utf-8")
-                return f"Successfully wrote to {path}"
-            except ValueError as e:
-                return f"Error: {e}"
-            except Exception as e:
-                return f"Error writing {path}: {e}"
-        elif tool_name == "list":
-            path = tool_input.get("path", "")
-            try:
-                safe_path = self._validate_path(path, project_root)
-                if not safe_path.is_dir():
-                    return f"Error: {path} is not a directory"
-                entries = sorted(
-                    p.relative_to(project_root).as_posix()
-                    for p in safe_path.iterdir()
-                )
-                return "\n".join(entries) if entries else "(empty directory)"
-            except ValueError as e:
-                return f"Error: {e}"
-            except Exception as e:
-                return f"Error listing {path}: {e}"
-        elif tool_name == "ask_user":
-            question = tool_input.get("question", "")
-            options = tool_input.get("options", [])
-            # In non-interactive mode, do NOT auto-select dangerous options
-            if options and isinstance(options, list):
-                question_lower = question.lower()
-                has_dangerous = any(
-                    kw in question_lower for kw in _DANGEROUS_ASK_KEYWORDS
-                )
-                if has_dangerous:
-                    return (
-                        f"[Interaction paused: {question}]\n"
-                        "Options: " + " | ".join(str(o) for o in options) + "\n"
-                        "WARNING: This question involves a potentially destructive "
-                        "operation. Auto-selection is disabled for safety. "
-                        "Please provide the answer in the task context."
-                    )
-                # For non-dangerous questions, return all options and let LLM decide
+        ctx = self._build_tool_context(task, agent)
+        return await self.tools.execute(tool_name, tool_input, ctx, agent.tools)
+
+    def _handle_ask_user(self, tool_input: dict[str, Any]) -> str:
+        question = tool_input.get("question", "")
+        options = tool_input.get("options", [])
+        # In non-interactive mode, do NOT auto-select dangerous options
+        if options and isinstance(options, list):
+            question_lower = question.lower()
+            has_dangerous = any(kw in question_lower for kw in _DANGEROUS_ASK_KEYWORDS)
+            if has_dangerous:
                 return (
                     f"[Interaction paused: {question}]\n"
                     "Options: " + " | ".join(str(o) for o in options) + "\n"
-                    "Interactive user input is not available in this mode. "
-                    "Please select the most appropriate option and proceed."
+                    "WARNING: This question involves a potentially destructive "
+                    "operation. Auto-selection is disabled for safety. "
+                    "Please provide the answer in the task context."
                 )
             return (
                 f"[Interaction paused: {question}]\n"
-                "Note: Interactive user input is not available in this mode. "
-                "Please provide the answer in the task context."
+                "Options: " + " | ".join(str(o) for o in options) + "\n"
+                "Interactive user input is not available in this mode. "
+                "Please select the most appropriate option and proceed."
             )
-        else:
-            return f"Error: tool '{tool_name}' not implemented yet"
+        return (
+            f"[Interaction paused: {question}]\n"
+            "Note: Interactive user input is not available in this mode. "
+            "Please provide the answer in the task context."
+        )
