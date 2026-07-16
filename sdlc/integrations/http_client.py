@@ -42,10 +42,7 @@ def _is_private_url(url: str) -> bool:
     # to avoid DNS rebinding attacks.  Hostnames that look like they
     # embed private IPs (e.g. 127.0.0.1.nip.io) are best handled at
     # the network level.  We block obvious patterns:
-    if hostname.endswith(".internal") or hostname.endswith(".local"):
-        return True
-
-    return False
+    return bool(hostname.endswith(".internal") or hostname.endswith(".local"))
 
 
 class HTTPClient:

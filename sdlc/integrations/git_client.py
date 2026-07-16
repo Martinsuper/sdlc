@@ -6,7 +6,6 @@ import re
 import subprocess
 from pathlib import Path
 
-
 # Known git flags that are safe to pass as arguments.
 _KNOWN_GIT_FLAGS = frozenset({
     "--abbrev-ref",

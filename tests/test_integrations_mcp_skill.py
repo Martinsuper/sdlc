@@ -13,7 +13,6 @@ import respx
 from sdlc.integrations.mcp_client import MCPClient
 from sdlc.integrations.skill_runner import SkillRunner
 
-
 # ============================================================================
 # MCPClient tests
 # ============================================================================
@@ -281,9 +280,11 @@ class TestMCPClientStdio:
             mock_proc.stdout = json.dinternal-monitorings({"error": {"message": "bad tool"}})
             mock_proc.stderr = ""
 
-            with patch("sdlc.integrations.mcp_client.subprocess.run", return_value=mock_proc):
-                with pytest.raises(Exception, match="MCP server error"):
-                    await client.call("npx my-mcp-server", "bad_tool", {})
+            with (
+                patch("sdlc.integrations.mcp_client.subprocess.run", return_value=mock_proc),
+                pytest.raises(Exception, match="MCP server error"),
+            ):
+                await client.call("npx my-mcp-server", "bad_tool", {})
             await client.close()
 
         asyncio.run(_go())
@@ -296,9 +297,11 @@ class TestMCPClientStdio:
             mock_proc.stdout = ""
             mock_proc.stderr = "crashed"
 
-            with patch("sdlc.integrations.mcp_client.subprocess.run", return_value=mock_proc):
-                with pytest.raises(Exception, match="exited with code 1"):
-                    await client.call("npx my-mcp-server", "tool", {})
+            with (
+                patch("sdlc.integrations.mcp_client.subprocess.run", return_value=mock_proc),
+                pytest.raises(Exception, match="exited with code 1"),
+            ):
+                await client.call("npx my-mcp-server", "tool", {})
             await client.close()
 
         asyncio.run(_go())

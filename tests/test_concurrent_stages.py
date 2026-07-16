@@ -4,15 +4,11 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 
 from sdlc.audit import AuditLogger
-from sdlc.gate import GateEngine
-from sdlc.gate.models import GateAction, GateDecision, GateDef
-from sdlc.kb.memory import MemoryL2
-from sdlc.llm.cost import CostTracker
 from sdlc.stage import StageCatalog
 from sdlc.stage.models import StageDef, StageNode
 from sdlc.state import StateStore
@@ -410,5 +406,5 @@ class TestRunCoordinatorConcurrency:
         )
         coordinator.pipeline_builder.build.return_value = mock_pipeline
 
-        result = await coordinator.run("test input", concurrency=2)
+        await coordinator.run("test input", concurrency=2)
         assert called_with_concurrency.get("concurrency") == 2

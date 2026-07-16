@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 import threading
 
 from sdlc.utils.exceptions import SdlcError
@@ -48,7 +49,8 @@ class CostTracker:
 
         # Persist to state_store if available
         if self.state is not None and hasattr(self.state, "record_llm_call"):
-            try:
+            # Persistence failure should not break cost tracking
+            with contextlib.suppress(Exception):
                 self.state.record_llm_call(
                     pipeline_id="",
                     stage_id=None,
@@ -59,9 +61,6 @@ class CostTracker:
                     duration_ms=0,
                     cached=False,
                 )
-            except Exception:
-                # Persistence failure should not break cost tracking
-                pass
 
     def check_budget(self) -> bool:
         """Return True if budget exceeded."""

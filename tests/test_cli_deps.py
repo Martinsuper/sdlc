@@ -134,6 +134,8 @@ class TestDependencyContainer:
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
-        with patch("sdlc.cli.deps.sdlc_home", return_value=tmp_path):
-            with pytest.raises(ConfigError, match="API key"):
-                build_deps()
+        with (
+            patch("sdlc.cli.deps.sdlc_home", return_value=tmp_path),
+            pytest.raises(ConfigError, match="API key"),
+        ):
+            build_deps()

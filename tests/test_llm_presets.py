@@ -1,6 +1,8 @@
 """Tests for LLM provider presets."""
 
-from sdlc.llm.presets import ProviderPreset, get_preset, list_presets
+import pytest
+
+from sdlc.llm.presets import get_preset, list_presets
 
 
 def test_list_presets_returns_all():
@@ -99,8 +101,5 @@ def test_preset_is_frozen():
     p = get_preset("deepseek")
     assert p is not None
     # ProviderPreset is a frozen dataclass, attempting to set should raise
-    try:
+    with pytest.raises(AttributeError):
         p.id = "changed"  # type: ignore[misc]
-        assert False, "Should have raised FrozenInstanceError"
-    except AttributeError:
-        pass

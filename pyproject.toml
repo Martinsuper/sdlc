@@ -70,7 +70,9 @@ src = ["sdlc", "tests"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "A", "SIM", "RUF"]
-ignore = ["E501", "A002", "A005", "RUF012"]
+# RUF001/002/003: fullwidth CJK punctuation in Chinese prompt templates and
+# comments is intentional, not ambiguous — the project is Chinese-first.
+ignore = ["E501", "A002", "A005", "RUF012", "RUF001", "RUF002", "RUF003"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["sdlc"]

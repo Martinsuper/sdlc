@@ -14,7 +14,6 @@ import respx
 from sdlc.integrations.filesystem import FileSystem
 from sdlc.integrations.git_client import GitClient
 from sdlc.integrations.http_client import HTTPClient
-from sdlc.integrations.mcp_client import MCPClient
 from sdlc.integrations.shell_runner import ShellResult, ShellRunner
 from sdlc.integrations.whitelist import (
     ALL,

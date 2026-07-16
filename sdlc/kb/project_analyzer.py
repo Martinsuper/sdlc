@@ -9,7 +9,6 @@ import fnmatch
 import os
 import re
 from pathlib import Path
-from typing import Any
 
 # Directories to always skip
 SKIP_DIRS: frozenset[str] = frozenset({

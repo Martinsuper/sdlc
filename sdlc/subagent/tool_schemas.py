@@ -4,7 +4,9 @@ These schemas are provided to the LLM so it knows how to invoke tools.
 Path arguments must be relative to the project root directory.
 """
 
-TOOL_SCHEMAS: dict[str, dict] = {
+from typing import Any
+
+TOOL_SCHEMAS: dict[str, dict[str, Any]] = {
     "read": {
         "name": "read",
         "description": "Read the contents of a file.",

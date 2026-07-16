@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import tempfile
 from pathlib import Path
@@ -41,8 +42,7 @@ def ensure_dir(p: Path, mode: int = 0o755) -> Path:
     p.mkdir(parents=True, exist_ok=True, mode=mode)
     # mkdir with mode may be affected by the umask; chmod ensures the mode is exact
     if p.is_dir():
-        try:
+        # best-effort; on some platforms chmod may fail (e.g. ACLs)
+        with contextlib.suppress(OSError):
             p.chmod(mode)
-        except OSError:
-            pass  # best-effort; on some platforms chmod may fail (e.g. ACLs)
     return p

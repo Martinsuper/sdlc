@@ -20,7 +20,6 @@ from sdlc.stage.models import StageNode
 from sdlc.state import StateStore
 from sdlc.subagent import SubagentPool
 
-
 MAX_CONCURRENCY_CAP = 5
 
 logger = logging.getLogger(__name__)

@@ -1,7 +1,6 @@
 from sdlc.llm.client import ModelRouter
 from sdlc.llm.models import CompletionRequest, Message, Role
 
-
 # --- Legacy tests (default anthropic behavior) ---
 
 

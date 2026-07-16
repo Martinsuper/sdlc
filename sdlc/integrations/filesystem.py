@@ -28,7 +28,7 @@ class FileSystem:
             raise ValueError(
                 f"Path escapes project root: {path} (resolved to {resolved}, "
                 f"root is {self._project_root})"
-            )
+            ) from None
         return resolved
 
     def read_file(self, path: Path, encoding: str = "utf-8") -> str:

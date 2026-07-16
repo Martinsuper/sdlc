@@ -6,7 +6,6 @@ from pathlib import Path
 from sdlc.kb.models import KBLayer
 from sdlc.utils.exceptions import SdlcError
 from sdlc.utils.fingerprint import file_fingerprint
-from sdlc.utils.time import format_iso
 
 
 class KBFileNotFoundError(SdlcError):

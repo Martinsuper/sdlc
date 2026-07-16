@@ -9,16 +9,14 @@ concurrency.
 import time
 from pathlib import Path
 
-from locust import User, events, task, between
+from locust import User, between, events, task
 
 from sdlc.gate.engine import GateEngine
-from sdlc.gate.models import GateAction, GateDef, GateDecision, GateTrigger
+from sdlc.gate.models import GateDef, GateTrigger
 from sdlc.kb.knowledge_base import KnowledgeBase
-from sdlc.profile.models import ProfileDef
 from sdlc.profile.registry import ProfileRegistry, register_builtins
 from sdlc.rule.engine import RuleEngine
 from sdlc.rule.models import Rule, RuleLevel
-
 
 # ---------------------------------------------------------------------------
 # Shared fixtures (initialised once per Locust worker)
@@ -124,7 +122,7 @@ class SDLCPerfUser(User):
         ts = TECH_STACKS[self._loop_count % len(TECH_STACKS)]
         sev = SEVERITIES[self._loop_count % len(SEVERITIES)]
         start = time.perf_counter()
-        profile = _registry.resolve(entry, tech_stack=ts, severity=sev)
+        _registry.resolve(entry, tech_stack=ts, severity=sev)
         elapsed = time.perf_counter() - start
         self.environment.events.request.fire(
             request_type="profile_resolve",
@@ -160,7 +158,7 @@ class SDLCPerfUser(User):
             return
         profile = _registry.list_profiles()[0]
         start = time.perf_counter()
-        score = _registry.match_score(profile, "feature", tech_stack=["frontend"])
+        _registry.match_score(profile, "feature", tech_stack=["frontend"])
         elapsed = time.perf_counter() - start
         self.environment.events.request.fire(
             request_type="profile_match_score",
@@ -238,7 +236,7 @@ class SDLCPerfUser(User):
             "rule_violations": [],
         }
         start = time.perf_counter()
-        decision = _gate_engine.evaluate("s-unit-test", context)
+        _gate_engine.evaluate("s-unit-test", context)
         elapsed = time.perf_counter() - start
         self.environment.events.request.fire(
             request_type="gate_evaluate",

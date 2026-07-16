@@ -2,7 +2,7 @@
 
 > Automate your entire software development lifecycle — from idea to production — with AI-powered pipeline orchestration.
 
-**Status:** ![RC](https://img.shields.io/badge/status-rc-blue) ![v0.3.0](https://img.shields.io/badge/version-0.3.0--rc-blue) ![M3](https://img.shields.io/badge/milestone-M3-cyan)
+**Status:** ![Stable](https://img.shields.io/badge/status-stable-green) ![v1.1.0](https://img.shields.io/badge/version-1.1.0-blue) ![GA](https://img.shields.io/badge/release-GA-brightgreen)
 
 ---
 

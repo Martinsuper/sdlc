@@ -13,7 +13,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from sdlc.audit import AuditEventType, AuditLogger
 from sdlc.gate import GateAction, GateEngine
@@ -182,7 +182,7 @@ def _load_rules_context(stage_id: str) -> list[dict[str, str]]:
     """Load rules context for a stage, with caching by stage_id."""
     cached = _cache_get(_rule_context_cache, stage_id)
     if cached is not None:
-        return cached
+        return cast("list[dict[str, str]]", cached)
 
     rules_context: list[dict[str, str]] = []
     try:
@@ -327,7 +327,7 @@ class StageRunner:
                         self.subagent_pool.invoke(stage_def.subagent, task),
                         timeout=timeout_seconds,
                     )
-                except asyncio.TimeoutError:
+                except TimeoutError:
                     status = "FAILED"
                     error = (
                         f"Stage '{stage_def.id}' timed out after {timeout_seconds}s"

@@ -50,16 +50,13 @@ class ProviderFactory:
         """
         provider_type = config.provider.lower().strip()
 
-        # Check if it's a preset ID -- but only if the user hasn't overridden
-        # base_url or api_key_env, which signals they want custom configuration
-        # rather than the preset defaults.
-        if not config.base_url or config.base_url == (get_preset(provider_type).base_url if get_preset(provider_type) else None):
-            preset = get_preset(provider_type)
-            if preset:
-                api_key = ProviderFactory._resolve_api_key(
-                    preset.api_key_env, preset.name
-                )
-                return ProviderFactory._from_preset(preset, api_key, config.timeout)
+        # Use preset defaults only when the user hasn't pointed base_url at a
+        # different endpoint. A base_url matching the preset's own URL still
+        # counts as "using the preset".
+        preset = get_preset(provider_type)
+        if preset and (not config.base_url or config.base_url == preset.base_url):
+            api_key = ProviderFactory._resolve_api_key(preset.api_key_env, preset.name)
+            return ProviderFactory._from_preset(preset, api_key, config.timeout)
 
         # Standard providers
         if provider_type == "anthropic":

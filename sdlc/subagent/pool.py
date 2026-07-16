@@ -162,7 +162,7 @@ class SubagentPool:
             raise ValueError(
                 f"Path escapes project root: {path_str} (resolved to {resolved}, "
                 f"root is {project_root})"
-            )
+            ) from None
         return resolved
 
     async def _execute_tool(

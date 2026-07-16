@@ -2,9 +2,7 @@
 
 import pytest
 
-from sdlc.profile.models import ProfileDef
-from sdlc.profile.registry import ProfileRegistry, register_builtins
-
+from sdlc.profile.registry import ProfileNotFoundError, ProfileRegistry, register_builtins
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -211,7 +209,7 @@ class TestFallback:
     def test_empty_registry_fallback_raises(self):
         """With no profiles at all, even the fallback get("new-feature") should raise."""
         reg = ProfileRegistry()
-        with pytest.raises(Exception):
+        with pytest.raises(ProfileNotFoundError):
             reg.resolve("feature")
 
 
@@ -223,8 +221,6 @@ class TestFallback:
 class TestTechStackInfluence:
     def test_frontend_tech_stack_boosts_frontend_profile(self):
         reg = _registry_with_builtins()
-        # Without tech_stack, feature matches multiple profiles at 0.4
-        p_no_ts = reg.resolve("feature")
         # With frontend tech_stack, frontend profile gets 0.4+0.3=0.7
         p_with_ts = reg.resolve("feature", tech_stack=["frontend"])
         assert p_with_ts.id == "frontend"
@@ -235,7 +231,6 @@ class TestTechStackInfluence:
 
     def test_backend_tech_stack_boosts_backend_profiles(self):
         reg = _registry_with_builtins()
-        p = reg.resolve("feature", tech_stack=["backend"])
         # new-feature has s-impl-backend, so it should get tech_stack bonus
         score_new_feature = reg.match_score(
             reg.get("new-feature"), "feature", tech_stack=["backend"]

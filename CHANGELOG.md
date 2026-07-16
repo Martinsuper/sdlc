@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-06-12
+
+### Fixed
+
+- Resolved 59 production issues across 7 modules (input validation, pipeline exception-state leaks, path-traversal hardening, cost-tracking edge cases)
+- Unified terminal pipeline/stage state on `COMPLETED` (previously split between `SUCCESS` and `COMPLETED`), with an idempotent DB migration for legacy rows
+
+### Added
+
+- Custom `base_url` support for OpenAI-compatible providers, with tier-routing automatically disabled for proxy endpoints
+- `only_stages` / `skip_stages` filtering on `sdlc run`
+- Init auto-detection improvements and lazy stage-catalog loading
+
+## [1.0.0] - 2026-06-06
+
+### Added
+
+- **First GA release** — AI-driven full-lifecycle SDLC orchestration CLI
+- Third-party LLM API support: DeepSeek, Qwen, Moonshot, GLM, Ollama, SiliconFlow (8 provider presets total)
+- 10 quality gates and expanded rule sets
+- `MCPClient` + `SkillRunner` integrations
+- Memory L2: post-stage KB auto-update engine
+- Concurrent stage execution
+- LICENSE (MIT), PyPI publish workflow, Homebrew formula, comprehensive tutorial docs
+
 ## [0.3.0-rc] - 2026-06-05
 
 ### Added

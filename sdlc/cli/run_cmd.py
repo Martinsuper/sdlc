@@ -74,7 +74,7 @@ def run(
         raise SystemExit(1)
 
     # Maximum input file size: 1 MB
-    _MAX_INPUT_FILE_SIZE = 1 * 1024 * 1024
+    max_input_file_size = 1 * 1024 * 1024
 
     raw_input = input
     if input.startswith("@"):
@@ -83,14 +83,14 @@ def run(
             click.echo(f"File not found: {path}", err=True)
             raise SystemExit(1)
         file_size = path.stat().st_size
-        if file_size > _MAX_INPUT_FILE_SIZE:
+        if file_size > max_input_file_size:
             click.echo(
                 f"Warning: Input file is {file_size / 1024:.0f} KB, "
-                f"exceeds recommended limit of {_MAX_INPUT_FILE_SIZE // 1024} KB. "
+                f"exceeds recommended limit of {max_input_file_size // 1024} KB. "
                 f"Truncating.",
                 err=True,
             )
-            raw_input = path.read_text(encoding="utf-8")[:_MAX_INPUT_FILE_SIZE]
+            raw_input = path.read_text(encoding="utf-8")[:max_input_file_size]
         else:
             raw_input = path.read_text()
     elif input == "-":

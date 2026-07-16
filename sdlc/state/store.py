@@ -274,10 +274,7 @@ class StateStore:
     def save_resume_token(self, pipeline_id: str, token: str, expires_at: str) -> None:
         # Normalize expires_at to UTC ISO format with timezone info
         dt = datetime.fromisoformat(expires_at)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=UTC)
-        else:
-            dt = dt.astimezone(UTC)
+        dt = dt.replace(tzinfo=UTC) if dt.tzinfo is None else dt.astimezone(UTC)
         expires_utc = dt.isoformat()
         with self.transaction() as tx:
             tx.execute(

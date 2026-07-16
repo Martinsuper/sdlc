@@ -32,6 +32,10 @@ class StageCatalog:
         self._stages[stage_def.id] = stage_def
 
     def get(self, stage_id: str) -> StageDef:
+        # Defensive lazy-load: the constructor no longer loads builtins, so a
+        # caller that forgot load_builtin() would otherwise get a silent miss.
+        if not self._stages:
+            self.load_builtin()
         stage = self._stages.get(stage_id)
         if not stage:
             raise StageNotFoundError(f"Stage '{stage_id}' not found in catalog")
