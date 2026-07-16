@@ -5,7 +5,13 @@ from typing import Any, ClassVar
 
 import openai
 
-from sdlc.llm.anthropic_provider import LLMRateLimitError, LLMTimeoutError
+from sdlc.llm.anthropic_provider import (
+    LLMAuthError,
+    LLMBadRequestError,
+    LLMRateLimitError,
+    LLMTimeoutError,
+    _extract_param,
+)
 from sdlc.llm.models import (
     CompletionRequest,
     CompletionResponse,
@@ -13,6 +19,7 @@ from sdlc.llm.models import (
     ModelInfo,
     Usage,
 )
+from sdlc.llm.pricing import compute_cost
 from sdlc.utils.exceptions import LLMError
 
 logger = logging.getLogger(__name__)
@@ -49,6 +56,10 @@ class OpenAIProvider:
             raise LLMRateLimitError(str(e)) from e
         except openai.APITimeoutError as e:
             raise LLMTimeoutError(str(e)) from e
+        except openai.AuthenticationError as e:
+            raise LLMAuthError(str(e)) from e
+        except openai.BadRequestError as e:
+            raise LLMBadRequestError(str(e), param=_extract_param(str(e))) from e
         except openai.APIError as e:
             raise LLMError(str(e)) from e
 
@@ -67,6 +78,10 @@ class OpenAIProvider:
             raise LLMRateLimitError(str(e)) from e
         except openai.APITimeoutError as e:
             raise LLMTimeoutError(str(e)) from e
+        except openai.AuthenticationError as e:
+            raise LLMAuthError(str(e)) from e
+        except openai.BadRequestError as e:
+            raise LLMBadRequestError(str(e), param=_extract_param(str(e))) from e
         except openai.APIError as e:
             raise LLMError(str(e)) from e
 
@@ -103,20 +118,19 @@ class OpenAIProvider:
     def _to_response(self, raw: Any, start: float) -> CompletionResponse:
         choice = raw.choices[0] if raw.choices else None
         content_text = choice.message.content if choice else ""
-        pricing = self.PRICING.get(raw.model)
-        if pricing is None:
-            logger.warning(
-                "No pricing data for model '%s'; cost_usd will be 0. "
-                "Consider updating PRICING dict or releasing a new version.",
-                raw.model,
-            )
-            pricing = {"in": 0.0, "out": 0.0}
         usage = raw.usage
         cost = 0.0
+        cost_source = "exact"
         if usage:
-            cost = (
-                usage.prompt_tokens * pricing["in"] + usage.completion_tokens * pricing["out"]
-            ) / 1_000_000
+            cost, cost_source = compute_cost(
+                raw.model, usage.prompt_tokens, usage.completion_tokens, self.PRICING
+            )
+            if cost_source == "estimate":
+                logger.info(
+                    "No pricing data for model '%s'; using conservative estimate "
+                    "(cost_usd may be approximate). Add it to PRICING for exact cost.",
+                    raw.model,
+                )
         return CompletionResponse(
             id=raw.id or "",
             model=raw.model,
@@ -127,5 +141,6 @@ class OpenAIProvider:
                 output_tokens=usage.completion_tokens if usage else 0,
             ),
             cost_usd=cost,
+            cost_source=cost_source,
             duration_ms=int((time.monotonic() - start) * 1000),
         )

@@ -64,6 +64,10 @@ class CompletionResponse(BaseModel):
     # Leaving these as zero defeats budget tracking and cost visibility.
     usage: Usage = Field(default_factory=Usage)
     cost_usd: float = 0.0
+    # How cost_usd was derived: "exact" (provider PRICING table), "family"
+    # (family-prefix match), or "estimate" (conservative fallback for unknown
+    # models). Lets stats/ROI distinguish measured from estimated spend.
+    cost_source: str = "exact"
     duration_ms: int = 0
     cached: bool = False
 

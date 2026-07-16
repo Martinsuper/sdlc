@@ -13,6 +13,7 @@ from sdlc.llm.models import (
     Role,
     Usage,
 )
+from sdlc.llm.pricing import compute_cost
 from sdlc.utils.exceptions import LLMError
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,37 @@ class LLMRateLimitError(LLMError):
 
 class LLMTimeoutError(LLMError):
     pass
+
+
+class LLMBadRequestError(LLMError):
+    """4xx request/parameter error. May be fixable by adjusting a parameter on
+    the same provider, so callers should not blindly fail over to a fallback
+    provider (which would just re-send the same bad request)."""
+
+    def __init__(self, message: str, *, param: str | None = None) -> None:
+        super().__init__(message)
+        self.param = param  # conflicting field name if identifiable, e.g. "temperature"
+
+
+class LLMAuthError(LLMError):
+    """401/403 authentication error. A configuration problem — do not retry,
+    do not fall back; let it surface so the user fixes their credentials."""
+
+
+# Parameter names we know how to "strip and retry" at the client layer.
+_KNOWN_PARAMS = ("temperature", "top_p", "max_tokens", "stop_sequences")
+
+
+def _extract_param(message: str) -> str | None:
+    """Best-effort: pull the offending parameter name from a 400 error body.
+
+    Returns a known param name if one is mentioned, else None (so the client
+    layer won't attempt a blind same-provider retry it can't act on)."""
+    lowered = message.lower()
+    for param in _KNOWN_PARAMS:
+        if param in lowered:
+            return param
+    return None
 
 
 class AnthropicProvider:
@@ -73,6 +105,10 @@ class AnthropicProvider:
             raise LLMRateLimitError(str(e)) from e
         except anthropic.APITimeoutError as e:
             raise LLMTimeoutError(str(e)) from e
+        except anthropic.AuthenticationError as e:
+            raise LLMAuthError(str(e)) from e
+        except anthropic.BadRequestError as e:
+            raise LLMBadRequestError(str(e), param=_extract_param(str(e))) from e
         except anthropic.APIError as e:
             raise LLMError(str(e)) from e
 
@@ -114,6 +150,10 @@ class AnthropicProvider:
             raise LLMRateLimitError(str(e)) from e
         except anthropic.APITimeoutError as e:
             raise LLMTimeoutError(str(e)) from e
+        except anthropic.AuthenticationError as e:
+            raise LLMAuthError(str(e)) from e
+        except anthropic.BadRequestError as e:
+            raise LLMBadRequestError(str(e), param=_extract_param(str(e))) from e
         except anthropic.APIError as e:
             raise LLMError(str(e)) from e
 
@@ -136,18 +176,16 @@ class AnthropicProvider:
         )
 
     def _to_response(self, raw: Any, start: float) -> CompletionResponse:
-        pricing = self.PRICING.get(raw.model)
-        if pricing is None:
-            logger.warning(
-                "No pricing data for model '%s'; cost_usd will be 0. "
-                "Consider updating PRICING dict or releasing a new version.",
+        usage = raw.usage
+        cost, cost_source = compute_cost(
+            raw.model, usage.input_tokens, usage.output_tokens, self.PRICING
+        )
+        if cost_source == "estimate":
+            logger.info(
+                "No pricing data for model '%s'; using conservative estimate "
+                "(cost_usd may be approximate). Add it to PRICING for exact cost.",
                 raw.model,
             )
-            pricing = {"in": 0.0, "out": 0.0}
-        usage = raw.usage
-        cost = (
-            usage.input_tokens * pricing["in"] + usage.output_tokens * pricing["out"]
-        ) / 1_000_000
         content_blocks = []
         for b in raw.content:
             if b.type == "text":
@@ -168,5 +206,6 @@ class AnthropicProvider:
                 cache_creation_tokens=getattr(usage, "cache_creation_input_tokens", 0),
             ),
             cost_usd=cost,
+            cost_source=cost_source,
             duration_ms=int((time.monotonic() - start) * 1000),
         )

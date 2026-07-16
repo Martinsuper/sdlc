@@ -1,7 +1,13 @@
 from collections.abc import AsyncIterator
 from typing import ClassVar
 
-from sdlc.llm.anthropic_provider import AnthropicProvider, LLMRateLimitError, LLMTimeoutError
+from sdlc.llm.anthropic_provider import (
+    AnthropicProvider,
+    LLMAuthError,
+    LLMBadRequestError,
+    LLMRateLimitError,
+    LLMTimeoutError,
+)
 from sdlc.llm.models import CompletionRequest, CompletionResponse, ModelInfo
 from sdlc.llm.openai_compatible import OpenAICompatibleProvider
 from sdlc.llm.openai_provider import OpenAIProvider
@@ -83,10 +89,38 @@ class MultiLLMClient:
             update["temperature"] = self.temperature
         return req.model_copy(update=update) if update else req
 
+    def _strip_conflicting_param(
+        self, req: CompletionRequest, param: str | None
+    ) -> CompletionRequest | None:
+        """Return a copy of *req* with the conflicting *param* neutralized, so a
+        parameter-rejection 400 can be retried on the *same* provider before
+        considering a fallback. Returns None when we can't act on the param
+        (unknown, or already unset) — signaling the caller not to blind-retry.
+        """
+        if param == "temperature" and req.temperature is not None:
+            return req.model_copy(update={"temperature": None})
+        if param == "top_p" and req.top_p != 1.0:
+            return req.model_copy(update={"top_p": 1.0})
+        if param == "stop_sequences" and req.stop_sequences:
+            return req.model_copy(update={"stop_sequences": []})
+        return None
+
     async def complete(self, req: CompletionRequest) -> CompletionResponse:
         prepared = self._prepare(req)
         try:
             return await self.primary.complete(prepared)
+        except LLMAuthError:
+            # Configuration problem: don't retry, don't fall back — surface it.
+            raise
+        except LLMBadRequestError as e:
+            # Parameter rejection: try fixing it on the same provider once
+            # before falling back (a fallback would re-send the same bad param).
+            retried = self._strip_conflicting_param(prepared, e.param)
+            if retried is not None:
+                return await self.primary.complete(retried)
+            if self.fallback is not None:
+                return await self.fallback.complete(prepared)
+            raise
         except (LLMRateLimitError, LLMTimeoutError, LLMError):
             if self.fallback is not None:
                 return await self.fallback.complete(prepared)
@@ -97,6 +131,20 @@ class MultiLLMClient:
         try:
             async for chunk in self.primary.stream(prepared):
                 yield chunk
+        except LLMAuthError:
+            raise
+        except LLMBadRequestError as e:
+            # Safe to retry here only because failure occurs before any chunk is
+            # yielded (providers raise during request setup, not mid-generation).
+            retried = self._strip_conflicting_param(prepared, e.param)
+            if retried is not None:
+                async for chunk in self.primary.stream(retried):
+                    yield chunk
+            elif self.fallback is not None:
+                async for chunk in self.fallback.stream(prepared):
+                    yield chunk
+            else:
+                raise
         except (LLMRateLimitError, LLMTimeoutError, LLMError):
             if self.fallback is not None:
                 async for chunk in self.fallback.stream(prepared):
