@@ -40,6 +40,13 @@ import click
 @click.option("--tag", multiple=True, help="Custom tags KEY=VAL")
 @click.option("-c", "--concurrency", type=int, default=1, help="Max concurrent stages (1-3)")
 @click.option("-v", "--verbose", is_flag=True, help="Show full traceback on errors")
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["text", "json"]),
+    default="text",
+    help="Output format (json for CI integration).",
+)
 def run(
     input,
     profile,
@@ -59,6 +66,7 @@ def run(
     tag,
     concurrency,
     verbose,
+    output_format,
 ):
     """Execute an SDLC pipeline."""
     import asyncio
@@ -146,6 +154,29 @@ def run(
                 skip_stages=skip_stages.split(",") if skip_stages else None,
             )
         )
+
+        # M-C3: machine-readable output for CI integration.
+        if output_format == "json":
+            import json as _json
+
+            payload = {
+                "pipeline_id": result.pipeline_id,
+                "status": result.status,
+                "cost_usd": result.total_cost_usd,
+                "error": result.error,
+                "stages": [
+                    {
+                        "id": r.get("stage_id"),
+                        "status": r.get("status"),
+                        "error": r.get("error"),
+                    }
+                    for r in result.stage_results
+                ],
+            }
+            click.echo(_json.dinternal-monitorings(payload, ensure_ascii=False))
+            if result.status == "failed":
+                raise SystemExit(1)
+            return
 
         click.echo(f"\nPipeline {'completed' if result.status == 'completed' else result.status}")
         click.echo(f"  Stages: {len(result.stage_results)}")

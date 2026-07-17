@@ -1,0 +1,40 @@
+name: "sdlc review"
+description: "Run an sdlc review stage on a PR and post the result as a comment (M-C3)."
+inputs:
+  input:
+    description: "The requirement/diff text or @file to review."
+    required: true
+  profile:
+    description: "Profile to run (default: auto)."
+    required: false
+    default: "auto"
+  stages:
+    description: "Comma-separated stages to run (default: cr)."
+    required: false
+    default: "cr"
+  github-token:
+    description: "Token for posting the PR comment."
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Install uv
+      uses: astral-sh/setup-uv@v4
+    - name: Install sdlc
+      shell: bash
+      run: uv sync
+    - name: Run sdlc stage (machine-readable)
+      shell: bash
+      id: run
+      run: |
+        uv run sdlc run "${{ inputs.input }}" \
+          --profile "${{ inputs.profile }}" \
+          --stages "${{ inputs.stages }}" \
+          --format json > sdlc_result.json || true
+        cat sdlc_result.json
+    - name: Post result to PR
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+      run: |
+        python .github/actions/sdlc-review/comment.py sdlc_result.json
