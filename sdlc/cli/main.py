@@ -159,6 +159,7 @@ _lazy_add_command(cli, "sdlc.cli.plugin_cmd", "plugin")
 _lazy_add_command(cli, "sdlc.cli.profile_cmd", "profile")
 _lazy_add_command(cli, "sdlc.cli.replay_cmd", "replay")
 _lazy_add_command(cli, "sdlc.cli.resume_cmd", "resume")
+_lazy_add_command(cli, "sdlc.cli.server_cmd", "server")
 
 # --- Management commands (7) ---
 _lazy_add_command(cli, "sdlc.cli.rule_cmd", "rule")
