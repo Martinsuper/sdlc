@@ -54,6 +54,13 @@ class SubagentPool:
         # still gated per-agent by its `tools` allow-list at execution time.
         self.tools = tools if tools is not None else default_registry()
         self.cost_tracker = cost_tracker
+        # The delegate tool (M-A5) needs a back-reference to this pool to
+        # dispatch workers, so it is registered here rather than in
+        # default_registry(). Deny-by-default still applies (agents opt in via
+        # their `tools` list).
+        from sdlc.subagent.tools.delegate_tool import DelegateTool
+
+        self.tools.register(DelegateTool(pool=self))
 
     def _resolve_tool_schemas(self, agent: Subagent) -> list[Tool]:
         """Build the LLM tool list from the agent's granted tool names.
