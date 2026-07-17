@@ -1,0 +1,56 @@
+name: Eval regression (release gate)
+
+# M-D3: block a release if agent output quality regressed vs. the saved
+# baseline. Runs the eval suite against a local model, diffs per-stage scores,
+# and fails if any stage dropped past the threshold.
+
+on:
+  workflow_dispatch: {}
+  release:
+    types: [created]
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: uv sync --extra dev
+
+      - name: Install and start Ollama
+        run: |
+          curl -fsSL https://ollama.com/install.sh | sh
+          nohup ollama serve > ollama.log 2>&1 &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:11434/api/tags && break || sleep 2
+          done
+          ollama pull qwen2:0.5b
+
+      - name: Configure sdlc to use local Ollama
+        run: |
+          mkdir -p .sdlc/ext
+          cat > .sdlc/ext/config.yaml <<'EOF'
+          llm:
+            provider: openai-compatible
+            model: qwen2:0.5b
+            base_url: http://localhost:11434/v1
+            api_key_env: OLLAMA_KEY
+            temperature: null
+          EOF
+
+      - name: Run eval regression gate
+        env:
+          OLLAMA_KEY: "ollama"
+        run: |
+          # Placeholder invocation: wire to `sdlc eval run` + baseline compare
+          # once a committed baseline exists for the release branch.
+          uv run pytest tests/test_regression.py -q
