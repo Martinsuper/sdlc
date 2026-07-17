@@ -39,6 +39,9 @@ Issues = "https://github.com/your-org/sdlc/issues"
 Changelog = "https://github.com/your-org/sdlc/blob/main/CHANGELOG.md"
 
 [project.optional-dependencies]
+semantic = [
+    "sqlite-vec>=0.1",
+]
 dev = [
     "pytest>=8.2",
     "pytest-asyncio>=0.23",

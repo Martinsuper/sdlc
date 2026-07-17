@@ -14,8 +14,50 @@ from typing import Any
 class MemoryL2:
     """Auto-update KB after stage completion."""
 
-    def __init__(self, kb_root: Path | None = None) -> None:
+    def __init__(self, kb_root: Path | None = None, enable_semantic: bool = True) -> None:
         self._kb_root = kb_root
+        self._enable_semantic = enable_semantic
+        self._vector_store: Any = None  # lazily created on first semantic use
+
+    def _get_vector_store(self) -> Any:
+        """Lazily build the vector store under the KB root. Returns None if
+        semantic memory is disabled or no KB root is configured."""
+        if not self._enable_semantic or not self._kb_root:
+            return None
+        if self._vector_store is None:
+            from sdlc.kb.vector_store import VectorStore
+
+            self._vector_store = VectorStore(self._kb_root / "kb_vectors.db")
+        return self._vector_store
+
+    def index_text(self, doc_id: str, text: str, meta: dict[str, Any] | None = None) -> bool:
+        """Add/replace a document in the semantic index. Returns False (no-op)
+        when semantic memory is unavailable — never raises."""
+        store = self._get_vector_store()
+        if store is None:
+            return False
+        try:
+            store.upsert(doc_id, text, meta or {})
+            return True
+        except Exception:
+            return False
+
+    def semantic_search(
+        self, query: str, top_k: int = 5, where: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
+        """Return top-k semantically-relevant KB snippets for *query*.
+
+        Degrades to an empty list (callers fall back to path/fingerprint
+        retrieval) when semantic memory is unavailable, so this is always safe
+        to call."""
+        store = self._get_vector_store()
+        if store is None:
+            return []
+        try:
+            hits = store.search(query, top_k=top_k, where=where)
+        except Exception:
+            return []
+        return [{"doc_id": h.doc_id, "score": h.score, "text": h.text, "meta": h.meta} for h in hits]
 
     def on_stage_complete(
         self,
