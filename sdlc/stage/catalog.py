@@ -75,6 +75,11 @@ class StageCatalog:
             max_retries=retry.get("max", 2) if isinstance(retry, dict) else data.get("max_retries", 2),
             retry_backoff=retry.get("backoff", "exponential") if isinstance(retry, dict) else data.get("retry_backoff", "exponential"),
             gates=data.get("gates", []),
+            runtime=data.get("runtime", "single"),
+            planning=data.get("planning", "off"),
+            max_reflect=data.get("max_reflect", 2),
+            reflect_model=data.get("reflect_model", ""),
+            acceptance_criteria=data.get("acceptance_criteria", []),
         )
         self.register(stage)
         return stage
@@ -117,6 +122,11 @@ class StageCatalog:
                 max_retries=item.get("max_retries", 2),
                 retry_backoff=item.get("retry_backoff", "exponential"),
                 gates=item.get("gates", []),
+                runtime=item.get("runtime", "single"),
+                planning=item.get("planning", "off"),
+                max_reflect=item.get("max_reflect", 2),
+                reflect_model=item.get("reflect_model", ""),
+                acceptance_criteria=item.get("acceptance_criteria", []),
             )
             if stage.id:
                 self.register(stage)

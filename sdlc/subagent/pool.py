@@ -64,6 +64,34 @@ class SubagentPool:
             schemas.append(_ASK_USER_SCHEMA)
         return [Tool(**s) for s in schemas]
 
+    async def run_agent(
+        self,
+        agent_id: str,
+        task: SubagentTask,
+        criteria: list[str] | None = None,
+        runtime: str | None = None,
+    ) -> SubagentResult:
+        """Dispatch to the requested execution mode.
+
+        ``runtime`` (usually the stage's) takes precedence over the agent's own
+        ``runtime`` field; "par" runs the Plan-Act-Reflect loop (M-A2), anything
+        else uses the single bounded tool-loop (``invoke``). This preserves GA
+        behavior for every stage/agent that has not opted in.
+        """
+        agent = self.registry.get(agent_id)
+        mode = runtime or getattr(agent, "runtime", "single")
+        if mode == "par":
+            from sdlc.subagent.runtime import PlanActReflectRuntime
+
+            par_runtime = PlanActReflectRuntime(
+                pool=self,
+                llm=self.llm,
+                audit=self.audit,
+                cost_tracker=self.cost_tracker,
+            )
+            return await par_runtime.run(agent, task, criteria)
+        return await self.invoke(agent_id, task)
+
     async def invoke(self, agent_id: str, task: SubagentTask) -> SubagentResult:
         agent = self.registry.get(agent_id)
         messages = self._build_initial_messages(agent, task)

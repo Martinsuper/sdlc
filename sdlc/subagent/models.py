@@ -13,6 +13,13 @@ class Subagent:
     prompt: str = ""
     max_iter: int = 10
     system_addon: str = ""
+    # M-A2: execution mode. "single" = one bounded tool-loop (GA behavior);
+    # "par" = Plan-Act-Reflect runtime. Default keeps every existing agent
+    # unchanged; only agents that opt in are upgraded.
+    runtime: str = "single"
+    # Optional per-agent whitelists for the M-A1 shell/mcp/skill tools.
+    mcp_servers: list[str] = field(default_factory=list)
+    skills: list[str] = field(default_factory=list)
 
 
 @dataclass

@@ -48,15 +48,17 @@ def _profiles() -> ProfileRegistry:
 def _failing_pool() -> MagicMock:
     """A subagent pool whose stage raises — simulates an LLM/exec failure."""
     pool = MagicMock()
-    pool.invoke = AsyncMock(side_effect=RuntimeError("simulated LLM 400: bad request"))
+    exc = RuntimeError("simulated LLM 400: bad request")
+    pool.invoke = AsyncMock(side_effect=exc)
+    pool.run_agent = AsyncMock(side_effect=exc)
     return pool
 
 
 def _ok_pool() -> MagicMock:
     pool = MagicMock()
-    pool.invoke = AsyncMock(
-        return_value=SubagentResult(success=True, output="done", artifacts={}, cost_usd=0.0)
-    )
+    ok = SubagentResult(success=True, output="done", artifacts={}, cost_usd=0.0)
+    pool.invoke = AsyncMock(return_value=ok)
+    pool.run_agent = AsyncMock(return_value=ok)
     return pool
 
 

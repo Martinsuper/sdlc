@@ -39,6 +39,13 @@ def _make_subagent_pool():
         artifacts={},
         cost_usd=0.01,
     )
+
+    # Runner calls run_agent (M-A2 dispatch); in single mode it delegates to
+    # invoke, so keep the mock consistent for coordinator-level tests.
+    async def _run_agent(agent_id, task, criteria=None, runtime=None):
+        return await pool.invoke(agent_id, task)
+
+    pool.run_agent = AsyncMock(side_effect=_run_agent)
     return pool
 
 

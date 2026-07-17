@@ -36,6 +36,15 @@ def _make_audit(tmp_path):
 def _make_subagent_pool():
     pool = MagicMock()
     pool.invoke = AsyncMock()
+
+    # The runner now calls run_agent (M-A2 dispatch). For these single-mode
+    # tests, run_agent delegates to invoke — matching real single-mode behavior
+    # — so existing invoke.call_count / return_value / side_effect assertions
+    # remain valid.
+    async def _run_agent(agent_id, task, criteria=None, runtime=None):
+        return await pool.invoke(agent_id, task)
+
+    pool.run_agent = AsyncMock(side_effect=_run_agent)
     return pool
 
 

@@ -20,3 +20,12 @@ timeout: 3600
 retry:
   max: 2
   backoff: exponential
+# M-A2: architecture design is a complex stage — plan, then self-check the
+# produced design against acceptance criteria and retry if it falls short.
+runtime: par
+planning: required
+max_reflect: 2
+acceptance_criteria:
+  - "接口设计覆盖需求文档中的所有功能点，无遗漏"
+  - "数据模型定义完整，字段类型与约束明确"
+  - "关键风险点已识别并给出缓解措施"

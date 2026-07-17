@@ -34,6 +34,13 @@ class StageDef:
     max_retries: int = 2
     retry_backoff: str = "exponential"
     gates: list[dict[str, Any]] = field(default_factory=list)
+    # M-A2 Plan-Act-Reflect. Defaults keep every existing stage single-shot;
+    # a stage opts in via `runtime: par` + `planning` in its YAML.
+    runtime: str = "single"          # single | par
+    planning: str = "off"            # off | optional | required
+    max_reflect: int = 2
+    reflect_model: str = ""          # "" = use the agent's model
+    acceptance_criteria: list[str] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         if self.retry_backoff not in _VALID_BACKOFF_STRATEGIES:

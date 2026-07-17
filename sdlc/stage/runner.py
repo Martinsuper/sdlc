@@ -325,7 +325,12 @@ class StageRunner:
                 timeout_seconds = stage_def.timeout or 1800
                 try:
                     result = await asyncio.wait_for(
-                        self.subagent_pool.invoke(stage_def.subagent, task),
+                        self.subagent_pool.run_agent(
+                            stage_def.subagent,
+                            task,
+                            criteria=stage_def.acceptance_criteria,
+                            runtime=stage_def.runtime,
+                        ),
                         timeout=timeout_seconds,
                     )
                 except TimeoutError:
