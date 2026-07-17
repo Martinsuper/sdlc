@@ -146,6 +146,7 @@ _lazy_add_command(cli, "sdlc.cli.config_cmd", "config")
 
 # --- Auxiliary commands (7) ---
 _lazy_add_command(cli, "sdlc.cli.doctor_cmd", "doctor")
+_lazy_add_command(cli, "sdlc.cli.eval_cmd", "eval_group", name="eval")
 _lazy_add_command(cli, "sdlc.cli.export_cmd", "export")
 _lazy_add_command(cli, "sdlc.cli.import_cmd", "import_cmd", name="import")
 _lazy_add_command(cli, "sdlc.cli.init_cmd", "init")

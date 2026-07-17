@@ -1,0 +1,7 @@
+{"id": "design-001", "stage": "design", "input": "加个订单查询接口，支持分页和按状态过滤", "context": {"adapter": "jd_spring_boot"}, "ideal": {"criteria": ["接口包含分页参数 (page/size)", "支持按订单状态过滤", "符合 REST 规范", "定义了响应数据结构"]}, "source": "maintainer"}
+{"id": "design-002", "stage": "design", "input": "设计用户登录鉴权，支持 JWT", "context": {}, "ideal": {"criteria": ["定义 token 签发与校验流程", "包含过期与刷新机制", "密码不明文存储", "错误路径有明确响应"]}, "source": "maintainer"}
+{"id": "design-003", "stage": "design", "input": "为商品库存增加乐观锁防止超卖", "context": {}, "ideal": {"criteria": ["使用版本号或 CAS 机制", "并发冲突有重试或失败返回", "数据模型含 version 字段", "说明事务边界"]}, "source": "maintainer"}
+{"id": "design-004", "stage": "design", "input": "设计一个文件上传服务，支持大文件分片", "context": {}, "ideal": {"criteria": ["分片上传与合并流程完整", "断点续传支持", "校验分片完整性", "存储抽象可替换"]}, "source": "maintainer"}
+{"id": "design-005", "stage": "design", "input": "增加一个消息通知中心，支持站内信和邮件", "context": {}, "ideal": {"criteria": ["通知渠道可扩展", "定义通知模板机制", "异步发送不阻塞主流程", "失败重试策略"]}, "source": "maintainer"}
+{"id": "cr-001", "stage": "cr", "input": "审查一段有 SQL 拼接的 DAO 代码", "context": {}, "ideal": {"criteria": ["识别 SQL 注入风险", "建议参数化查询", "指出具体行为", "给出修复方向"]}, "source": "adversarial"}
+{"id": "cr-002", "stage": "cr", "input": "审查一个没有空指针检查的服务方法", "context": {}, "ideal": {"criteria": ["识别 NPE 风险点", "建议防御性检查", "评估影响范围"]}, "source": "maintainer"}
