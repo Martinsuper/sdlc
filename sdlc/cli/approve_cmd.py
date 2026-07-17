@@ -34,6 +34,25 @@ def _resolve_and_maybe_resume(pipeline_id: str, gate_id: str, approved: bool, re
     except Exception:
         reviewer = "unknown"
 
+    # M-B6: if the gate names approver_roles, enforce the caller's role
+    # (from SDLC_ROLE). Personal mode (no role set) is allowed through.
+    import os
+
+    from sdlc.server.auth import parse_role
+
+    role = parse_role(os.environ.get("SDLC_ROLE"))
+    pending = store.load_waiting(pipeline_id, kind="approval", pending_only=True)
+    match = next((w for w in pending if w["ref_id"] == gate_id), None)
+    if match is not None:
+        required = (match.get("payload") or {}).get("approver_roles") or []
+        if required and role is not None and role.value not in required:
+            click.echo(
+                f"Role '{role.value}' may not approve gate '{gate_id}' "
+                f"(requires one of: {', '.join(required)}).",
+                err=True,
+            )
+            raise SystemExit(1)
+
     ok = store.resolve_waiting(
         pipeline_id,
         "approval",

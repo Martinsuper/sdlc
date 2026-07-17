@@ -34,6 +34,9 @@ class GateDef:
     profiles: list[str] = field(default_factory=list)
     auto_pass_conditions: dict[str, Any] = field(default_factory=dict)
     block_conditions: dict[str, Any] = field(default_factory=dict)
+    # M-B6: roles permitted to approve this gate. Empty = anyone (personal mode
+    # and no-permission deployments are unaffected).
+    approver_roles: list[str] = field(default_factory=list)
 
 
 @dataclass

@@ -89,6 +89,9 @@ class GateEngine:
             reason=f"Gate {gate_def.id} requires manual review",
             reviewer=gate_def.reviewer,
             deadline=deadline,
+            # M-B6: carry the roles allowed to approve so the approve command
+            # can enforce them without re-loading the gate definition.
+            metadata={"approver_roles": list(gate_def.approver_roles)},
         )
 
     def _has_active_exception(self, rule_id: str, context: dict[str, Any]) -> bool:

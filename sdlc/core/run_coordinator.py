@@ -234,7 +234,11 @@ class RunCoordinator:
                 kind="approval",
                 ref_id=gd.gate_id,
                 stage_id=waiting["stage_id"],
-                payload={"reason": gd.reason, "after_stage": waiting["stage_id"]},
+                payload={
+                    "reason": gd.reason,
+                    "after_stage": waiting["stage_id"],
+                    "approver_roles": gd.metadata.get("approver_roles", []),
+                },
                 reviewer=gd.reviewer,
                 deadline=gd.deadline,
             )

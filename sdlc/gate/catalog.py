@@ -59,6 +59,7 @@ class GateCatalog:
             profiles=profiles if isinstance(profiles, list) else [],
             auto_pass_conditions=auto_pass_conditions,
             block_conditions=block_conditions,
+            approver_roles=data.get("approver_roles", []) or [],
         )
         self.gates[gate.id] = gate
         return 1
