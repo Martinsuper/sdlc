@@ -29,6 +29,7 @@ dependencies = [
     "httpx>=0.27",
     "anthropic>=0.34",
     "openai>=1.30",
+    "packaging>=23.0",
 ]
 
 [project.urls]
