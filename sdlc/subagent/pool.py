@@ -11,6 +11,7 @@ from sdlc.llm.models import CompletionRequest, ContentBlock, Message, Role, Tool
 from sdlc.subagent.models import Subagent, SubagentResult, SubagentTask
 from sdlc.subagent.registry import SubagentRegistry
 from sdlc.subagent.tools import ToolContext, ToolRegistry, default_registry
+from sdlc.utils.exceptions import ClarificationNeeded
 
 _DANGEROUS_ASK_KEYWORDS = frozenset({
     "deploy", "delete", "remove", "destroy", "drop", "truncate",
@@ -261,36 +262,46 @@ class SubagentPool:
             return f"Error: tool '{tool_name}' is not allowed for agent {agent.id}"
 
         # ask_user is handled inline: it needs the pool's non-interactive policy
-        # (dangerous-keyword guard), not a registry tool.
+        # (dangerous-keyword guard) and async-suspend behavior, not a registry tool.
         if tool_name == "ask_user":
-            return self._handle_ask_user(tool_input)
+            return self._handle_ask_user(tool_input, task, agent)
 
         ctx = self._build_tool_context(task, agent)
         return await self.tools.execute(tool_name, tool_input, ctx, agent.tools)
 
-    def _handle_ask_user(self, tool_input: dict[str, Any]) -> str:
+    @staticmethod
+    def _question_id(question: str) -> str:
+        """Stable id for a question so an answer can be routed back on resume."""
+        import hashlib
+
+        return "q-" + hashlib.sha256(question.encode("utf-8")).hexdigest()[:12]
+
+    def _handle_ask_user(
+        self, tool_input: dict[str, Any], task: SubagentTask, agent: Subagent
+    ) -> str:
         question = tool_input.get("question", "")
         options = tool_input.get("options", [])
-        # In non-interactive mode, do NOT auto-select dangerous options
-        if options and isinstance(options, list):
-            question_lower = question.lower()
-            has_dangerous = any(kw in question_lower for kw in _DANGEROUS_ASK_KEYWORDS)
-            if has_dangerous:
-                return (
-                    f"[Interaction paused: {question}]\n"
-                    "Options: " + " | ".join(str(o) for o in options) + "\n"
-                    "WARNING: This question involves a potentially destructive "
-                    "operation. Auto-selection is disabled for safety. "
-                    "Please provide the answer in the task context."
-                )
-            return (
-                f"[Interaction paused: {question}]\n"
-                "Options: " + " | ".join(str(o) for o in options) + "\n"
-                "Interactive user input is not available in this mode. "
-                "Please select the most appropriate option and proceed."
+        qid = self._question_id(question)
+
+        # Resume path: if a human already answered this question (injected into
+        # the task context on resume), return that answer instead of suspending.
+        answers = (task.context or {}).get("clarifications", {}) if task.context else {}
+        if isinstance(answers, dict) and qid in answers:
+            return f"User answered: {answers[qid]}"
+
+        # Dangerous operations never auto-proceed; still suspend for a human.
+        question_lower = question.lower()
+        has_dangerous = any(kw in question_lower for kw in _DANGEROUS_ASK_KEYWORDS)
+        if self.audit is not None:
+            self.audit.emit(
+                AuditEventType.CLARIFICATION_REQUESTED,
+                {"agent_id": agent.id, "question_id": qid, "dangerous": has_dangerous},
+                pipeline_id=task.pipeline_id or None,
             )
-        return (
-            f"[Interaction paused: {question}]\n"
-            "Note: Interactive user input is not available in this mode. "
-            "Please provide the answer in the task context."
+        # Suspend the pipeline for a real answer rather than fabricating one.
+        raise ClarificationNeeded(
+            question=question,
+            options=[str(o) for o in options] if isinstance(options, list) else [],
+            question_id=qid,
+            agent_id=agent.id,
         )

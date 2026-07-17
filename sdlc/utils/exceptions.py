@@ -42,3 +42,25 @@ class ResumeExpiredError(SdlcError):
 
 class RuleViolationError(SdlcError):
     pass
+
+
+class ClarificationNeeded(SdlcError):  # noqa: N818 — control-flow signal, not an error condition
+    """Raised when a subagent's ask_user needs a human answer.
+
+    Propagates out of the tool-loop so the coordinator can suspend the pipeline
+    (WAITING_CLARIFICATION) rather than returning a fabricated answer. Carries
+    the question, options, and a stable question id for the resume round-trip.
+    """
+
+    def __init__(
+        self,
+        question: str,
+        options: list[str] | None = None,
+        question_id: str = "",
+        agent_id: str = "",
+    ) -> None:
+        super().__init__(question)
+        self.question = question
+        self.options = options or []
+        self.question_id = question_id
+        self.agent_id = agent_id

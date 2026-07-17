@@ -19,6 +19,7 @@ from sdlc.stage import StageCatalog, StageRunner
 from sdlc.stage.models import StageNode
 from sdlc.state import StateStore
 from sdlc.subagent import SubagentPool
+from sdlc.utils.exceptions import ClarificationNeeded
 
 MAX_CONCURRENCY_CAP = 5
 
@@ -105,6 +106,10 @@ class RunCoordinator:
         )
 
         context = {"input": input_text, "severity": profile.severity, "pipeline_id": pipeline.id}
+        # M-A3: on resume, prior human answers are injected so a subagent's
+        # ask_user returns them instead of suspending again.
+        if opts.get("clarifications"):
+            context["clarifications"] = opts["clarifications"]
 
         # Filter stages based on only_stages / skip_stages options
         only_stages = opts.get("only_stages")
@@ -153,12 +158,47 @@ class RunCoordinator:
             all_success = all(r["status"] == "COMPLETED" for r in stage_results)
             has_failed = any(r["status"] == "FAILED" for r in stage_results)
 
-            if has_failed:
+            # M-B1: a MANUAL_REVIEW gate suspends the pipeline (recoverable via
+            # `sdlc approve`), distinct from a BLOCK gate which fails hard. When
+            # resuming an already-approved run, don't re-suspend on that gate.
+            waiting = None if opts.get("gate_approved") else self._first_manual_review(stage_results)
+
+            if waiting is not None:
+                final_status = "waiting_approval"
+            elif has_failed:
                 final_status = "failed"
             elif all_success:
                 final_status = "completed"
             else:
                 final_status = "paused"
+        except ClarificationNeeded as clarify:
+            # M-A3: a subagent asked the user a question. Suspend the pipeline
+            # (WAITING_CLARIFICATION) and persist the question so `sdlc answer`
+            # can resolve it and resume — reusing the M-B1 waiting mechanism.
+            self.state.save_waiting(
+                pipeline_id=pipeline.id,
+                kind="clarification",
+                ref_id=clarify.question_id,
+                payload={"question": clarify.question, "options": clarify.options},
+                reviewer=clarify.agent_id,
+            )
+            self.state.update_pipeline_status(pipeline.id, "WAITING_CLARIFICATION")
+            self.audit.emit(
+                AuditEventType.PIPELINE_SUSPENDED,
+                {"id": pipeline.id, "kind": "clarification", "question_id": clarify.question_id},
+                pipeline_id=pipeline.id,
+            )
+            self.audit.emit(
+                AuditEventType.PIPELINE_END,
+                {"id": pipeline.id, "status": "waiting_clarification"},
+                pipeline_id=pipeline.id,
+            )
+            return PipelineResult(
+                pipeline_id=pipeline.id,
+                status="waiting_clarification",
+                stage_results=[],
+                total_cost_usd=0.0,
+            )
         except Exception as exc:
             # P0-37: Pipeline exception state leak — mark as FAILED if still RUNNING
             final_status = "failed"
@@ -183,6 +223,37 @@ class RunCoordinator:
                 stage_results=stage_results,
                 total_cost_usd=total_cost,
                 error=str(exc),
+            )
+
+        # M-B1: persist the suspension and set WAITING_APPROVAL before the
+        # generic status mapping, so an approver can later resume via `approve`.
+        if final_status == "waiting_approval" and waiting is not None:
+            gd = waiting["gate_decision"]
+            self.state.save_waiting(
+                pipeline_id=pipeline.id,
+                kind="approval",
+                ref_id=gd.gate_id,
+                stage_id=waiting["stage_id"],
+                payload={"reason": gd.reason, "after_stage": waiting["stage_id"]},
+                reviewer=gd.reviewer,
+                deadline=gd.deadline,
+            )
+            self.state.update_pipeline_status(pipeline.id, "WAITING_APPROVAL")
+            self.audit.emit(
+                AuditEventType.PIPELINE_SUSPENDED,
+                {"id": pipeline.id, "gate_id": gd.gate_id, "reviewer": gd.reviewer},
+                pipeline_id=pipeline.id,
+            )
+            self.audit.emit(
+                AuditEventType.PIPELINE_END,
+                {"id": pipeline.id, "status": final_status, "cost_usd": total_cost},
+                pipeline_id=pipeline.id,
+            )
+            return PipelineResult(
+                pipeline_id=pipeline.id,
+                status=final_status,
+                stage_results=stage_results,
+                total_cost_usd=total_cost,
             )
 
         # Map logical final_status to valid pipeline state transitions
@@ -216,6 +287,87 @@ class RunCoordinator:
             stage_results=stage_results,
             total_cost_usd=total_cost,
             error=pipeline_error,
+        )
+
+    @staticmethod
+    def _first_manual_review(stage_results: list[dict[str, Any]]) -> dict[str, Any] | None:
+        """Find the first stage whose gate demanded MANUAL_REVIEW.
+
+        Returns {stage_id, gate_decision} or None. Normalizes a dict-shaped
+        gate_decision to a GateDecision so callers can read .gate_id etc."""
+        for r in stage_results:
+            gd = r.get("gate_decision")
+            if isinstance(gd, dict):
+                try:
+                    gd = GateDecision(
+                        gate_id=gd.get("gate_id", ""),
+                        action=GateAction(gd.get("action", "")),
+                        reason=gd.get("reason", ""),
+                        reviewer=gd.get("reviewer", ""),
+                        deadline=gd.get("deadline", ""),
+                        metadata=gd.get("metadata", {}),
+                    )
+                except (ValueError, KeyError):
+                    gd = None
+            if isinstance(gd, GateDecision) and gd.action == GateAction.MANUAL_REVIEW:
+                return {"stage_id": r.get("stage_id"), "gate_decision": gd}
+        return None
+
+    async def resume_from_waiting(self, pipeline_id: str) -> PipelineResult:
+        """Resume a suspended pipeline after its waiting record was resolved.
+
+        Reads the resolved approval: if rejected, the pipeline transitions to
+        FAILED; if approved, it transitions back to RUNNING and re-runs the
+        pipeline (already-completed stages are cheap no-ops / cached). Refuses
+        to resume while any suspension is still pending.
+        """
+        summary = self.state.load_pipeline(pipeline_id)
+        if summary is None:
+            raise ValueError(f"Pipeline not found: {pipeline_id}")
+        if self.state.has_pending_waiting(pipeline_id):
+            raise ValueError(
+                f"Pipeline {pipeline_id} still has an unresolved gate/clarification"
+            )
+
+        # Collect any resolved clarification answers to inject on the re-run so
+        # the subagent's ask_user returns them instead of re-suspending.
+        clarifications: dict[str, str] = {}
+        for w in self.state.load_waiting(pipeline_id, kind="clarification"):
+            ans = w.get("answer") or {}
+            if "answer" in ans:
+                clarifications[w["ref_id"]] = str(ans["answer"])
+
+        resolved = self.state.load_waiting(pipeline_id, kind="approval")
+        rejected = any(
+            (w.get("answer") or {}).get("approved") is False for w in resolved
+        )
+        if rejected:
+            self.state.update_pipeline_status(pipeline_id, "FAILED")
+            self.audit.emit(
+                AuditEventType.APPROVAL_REJECTED,
+                {"id": pipeline_id},
+                pipeline_id=pipeline_id,
+            )
+            return PipelineResult(
+                pipeline_id=pipeline_id,
+                status="failed",
+                stage_results=[],
+                total_cost_usd=0.0,
+                error="Rejected at manual-review gate",
+            )
+
+        self.state.update_pipeline_status(pipeline_id, "RUNNING")
+        self.audit.emit(
+            AuditEventType.APPROVAL_GRANTED, {"id": pipeline_id}, pipeline_id=pipeline_id
+        )
+        # Re-run the pipeline; the injected approval marks the gate satisfied so
+        # it does not immediately re-suspend on the same gate, and clarification
+        # answers are threaded into the run context.
+        return await self.run(
+            input_text=f"[Resume] {pipeline_id}",
+            profile_id=summary.profile_id or None,
+            gate_approved=True,
+            clarifications=clarifications,
         )
 
     async def _run_pipeline_stages_concurrent(

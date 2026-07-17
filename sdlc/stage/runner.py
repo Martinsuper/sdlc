@@ -24,6 +24,7 @@ from sdlc.stage.models import StageDef, StageNode
 from sdlc.state import Artifact, StateStore
 from sdlc.state import StageResult as StateStageResult
 from sdlc.subagent import SubagentPool, SubagentTask
+from sdlc.utils.exceptions import ClarificationNeeded
 from sdlc.utils.time import now_utc
 
 logger = logging.getLogger(__name__)
@@ -314,10 +315,16 @@ class StageRunner:
             rules_context = _load_rules_context(stage_def.id)
 
             if stage_def.subagent:
+                task_context: dict[str, Any] = {"kb": kb_context, "rules": rules_context}
+                # Thread project root + resumed clarification answers through so
+                # tools stay project-confined and ask_user can resolve on resume.
+                for key in ("clarifications", "project_root", "project_dir"):
+                    if context.get(key) is not None:
+                        task_context[key] = context[key]
                 task = SubagentTask(
                     agent_id=stage_def.subagent,
                     input=context.get("input", ""),
-                    context={"kb": kb_context, "rules": rules_context},
+                    context=task_context,
                     pipeline_id=pipeline_id,
                     stage_id=stage_def.id,
                     max_iter=stage_def.timeout // 60 or 10,
@@ -380,6 +387,11 @@ class StageRunner:
             )
             self.state.save_stage_result(stage_result)
 
+        except ClarificationNeeded:
+            # M-A3: a subagent needs a human answer. Propagate so the
+            # coordinator can suspend the pipeline (WAITING_CLARIFICATION)
+            # instead of recording a hard stage failure.
+            raise
         except Exception as e:
             status = "FAILED"
             error = str(e)

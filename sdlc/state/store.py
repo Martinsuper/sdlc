@@ -1,4 +1,5 @@
 import hmac
+import json
 import sqlite3
 import threading
 from collections.abc import Generator
@@ -308,6 +309,93 @@ class StateStore:
             token=row["token"],
             expires_at=row["expires_at"],
         )
+
+    # --- Async suspend/resume (M-B1 approval + M-A3 clarification) ----------- #
+
+    def save_waiting(
+        self,
+        pipeline_id: str,
+        kind: str,
+        ref_id: str,
+        payload: dict[str, Any],
+        stage_id: str | None = None,
+        reviewer: str = "",
+        deadline: str = "",
+    ) -> None:
+        """Record a pending suspension (approval gate or clarification question).
+
+        ``kind`` is 'approval' or 'clarification'; ``ref_id`` is the gate id or
+        question id. answer_json stays NULL until resolved."""
+        now = now_utc().isoformat()
+        with self.transaction() as tx:
+            tx.execute(
+                "INSERT OR REPLACE INTO waiting_context "
+                "(pipeline_id, kind, ref_id, stage_id, payload_json, answer_json, "
+                "reviewer, deadline, created_at, resolved_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                (
+                    pipeline_id,
+                    kind,
+                    ref_id,
+                    stage_id,
+                    json.dinternal-monitorings(payload, ensure_ascii=False, default=str),
+                    None,
+                    reviewer,
+                    deadline,
+                    now,
+                    None,
+                ),
+            )
+
+    def load_waiting(
+        self, pipeline_id: str, kind: str | None = None, pending_only: bool = False
+    ) -> list[dict[str, Any]]:
+        """Return suspension records for a pipeline (optionally by kind /
+        only-unresolved), newest first."""
+        query = "SELECT * FROM waiting_context WHERE pipeline_id=?"
+        params: list[Any] = [pipeline_id]
+        if kind is not None:
+            query += " AND kind=?"
+            params.append(kind)
+        if pending_only:
+            query += " AND resolved_at IS NULL"
+        query += " ORDER BY created_at DESC"
+        rows = self._read_execute(query, tuple(params)).fetchall()
+        out: list[dict[str, Any]] = []
+        for r in rows:
+            d = dict(r)
+            d["payload"] = json.loads(d["payload_json"]) if d.get("payload_json") else {}
+            d["answer"] = json.loads(d["answer_json"]) if d.get("answer_json") else None
+            out.append(d)
+        return out
+
+    def resolve_waiting(
+        self, pipeline_id: str, kind: str, ref_id: str, answer: dict[str, Any]
+    ) -> bool:
+        """Attach an answer/decision to a pending suspension. Returns True if a
+        matching pending record existed."""
+        now = now_utc().isoformat()
+        with self.transaction() as tx:
+            cur = tx.execute(
+                "UPDATE waiting_context SET answer_json=?, resolved_at=? "
+                "WHERE pipeline_id=? AND kind=? AND ref_id=? AND resolved_at IS NULL",
+                (
+                    json.dinternal-monitorings(answer, ensure_ascii=False, default=str),
+                    now,
+                    pipeline_id,
+                    kind,
+                    ref_id,
+                ),
+            )
+            return cur.rowcount > 0
+
+    def has_pending_waiting(self, pipeline_id: str) -> bool:
+        row = self._read_execute(
+            "SELECT 1 FROM waiting_context WHERE pipeline_id=? AND resolved_at IS NULL LIMIT 1",
+            (pipeline_id,),
+        ).fetchone()
+        return row is not None
+
 
     def backup(self, dest: Path) -> None:
         ensure_dir(dest.parent)

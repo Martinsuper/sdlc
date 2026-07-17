@@ -76,6 +76,21 @@ CREATE TABLE IF NOT EXISTS resume_tokens (
     FOREIGN KEY (pipeline_id) REFERENCES pipelines(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS waiting_context (
+    pipeline_id  TEXT NOT NULL,
+    kind         TEXT NOT NULL,          -- 'approval' | 'clarification'
+    ref_id       TEXT NOT NULL,          -- gate_id or question_id
+    stage_id     TEXT,
+    payload_json TEXT NOT NULL,          -- gate/question details, options, SLA
+    answer_json  TEXT,                   -- approve/reject/answer result; NULL = pending
+    reviewer     TEXT,
+    deadline     TEXT,
+    created_at   TEXT NOT NULL,
+    resolved_at  TEXT,
+    PRIMARY KEY (pipeline_id, kind, ref_id),
+    FOREIGN KEY (pipeline_id) REFERENCES pipelines(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_pipelines_status ON pipelines(status);
 CREATE INDEX IF NOT EXISTS idx_pipelines_created ON pipelines(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_stages_pipeline ON stages(pipeline_id);
@@ -84,6 +99,8 @@ CREATE INDEX IF NOT EXISTS idx_artifacts_stage ON artifacts(stage_id);
 CREATE INDEX IF NOT EXISTS idx_llm_calls_pipeline ON llm_calls(pipeline_id);
 CREATE INDEX IF NOT EXISTS idx_llm_calls_created ON llm_calls(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_kb_deltas_fingerprint ON kb_deltas(fingerprint);
+CREATE INDEX IF NOT EXISTS idx_waiting_pipeline ON waiting_context(pipeline_id);
+CREATE INDEX IF NOT EXISTS idx_waiting_pending ON waiting_context(pipeline_id, resolved_at);
 
 CREATE VIEW IF NOT EXISTS v_pipeline_summary AS
 SELECT p.id, p.status, p.entry_kind, p.profile_id,
@@ -106,7 +123,9 @@ GROUP BY DATE(created_at), model;
 
 VALID_TRANSITIONS: dict[str, set[str]] = {
     "PENDING": {"RUNNING", "SKIPPED"},
-    "RUNNING": {"COMPLETED", "FAILED", "PAUSED"},
+    "RUNNING": {"COMPLETED", "FAILED", "PAUSED", "WAITING_APPROVAL", "WAITING_CLARIFICATION"},
+    "WAITING_APPROVAL": {"RUNNING", "FAILED", "CANCELLED"},
+    "WAITING_CLARIFICATION": {"RUNNING", "FAILED", "CANCELLED"},
     "FAILED": {"PENDING"},
     "SKIPPED": set(),
     "NEW": {"RUNNING"},

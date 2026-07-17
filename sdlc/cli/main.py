@@ -141,6 +141,9 @@ def _lazy_add_command(group: click.Group, module_name: str, attr: str, name: str
 # --- Core flow commands (5) ---
 _lazy_add_command(cli, "sdlc.cli.adapter_cmd", "adapter")
 _lazy_add_command(cli, "sdlc.cli.agent_cmd", "agent")
+_lazy_add_command(cli, "sdlc.cli.approve_cmd", "approve")
+_lazy_add_command(cli, "sdlc.cli.approve_cmd", "reject")
+_lazy_add_command(cli, "sdlc.cli.answer_cmd", "answer")
 _lazy_add_command(cli, "sdlc.cli.completion_cmd", "completion")
 _lazy_add_command(cli, "sdlc.cli.config_cmd", "config")
 
