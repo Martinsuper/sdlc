@@ -59,6 +59,23 @@ class MemoryL2:
             return []
         return [{"doc_id": h.doc_id, "score": h.score, "text": h.text, "meta": h.meta} for h in hits]
 
+    def effect_ranked_decisions(self, limit: int = 10) -> dict[str, list[dict[str, Any]]]:
+        """Return effect-weighted decisions for context injection (M-A6).
+
+        {"preferred": [...], "avoid": [...]} — high-effect decisions to inject
+        first and low-effect anti-patterns to steer away from. Only decisions
+        with enough accumulated samples influence the split; returns empty lists
+        when no KB root or no qualifying ADRs, so callers degrade to baseline."""
+        if not self._kb_root:
+            return {"preferred": [], "avoid": []}
+        from sdlc.kb.adr import ADRStore
+
+        preferred, avoid = ADRStore(self._kb_root).ranked_for_injection(limit=limit)
+        return {
+            "preferred": [{"id": a.id, "decision": a.decision, "score": a.effect_score} for a in preferred],
+            "avoid": [{"id": a.id, "decision": a.decision, "score": a.effect_score} for a in avoid],
+        }
+
     def on_stage_complete(
         self,
         stage_id: str,
