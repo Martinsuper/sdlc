@@ -33,3 +33,6 @@ htmlcov/
 
 # uv
 uv.lock
+
+# sdlc skill 运行时产物(各阶段文档输出到项目根 .sdlc/,不入库)
+.sdlc/
