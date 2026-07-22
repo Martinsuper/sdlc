@@ -33,7 +33,7 @@ body:
     attributes:
       label: Proposed Solution
       description: Describe the solution you'd like to see.
-      placeholder: "Add a new command `sdlc ...` that ..."
+      placeholder: "Add a checklist item to references/review.md that ..."
     validations:
       required: true
 
@@ -43,23 +43,20 @@ body:
       label: Alternatives Considered
       description: |
         A clear description of any alternative solutions or features you've considered.
-      placeholder: "I considered using `sdlc run --profile ...` but it doesn't cover ..."
+      placeholder: "I considered adding a new template section but ..."
 
   - type: dropdown
     id: area
     attributes:
       label: Affected Area
-      description: Which part of SDLC does this relate to?
+      description: Which part of the skill does this relate to?
       options:
-        - CLI commands
-        - Pipeline execution
-        - Adapters
-        - Rule engine
-        - Quality gates
-        - LLM integration
-        - Knowledge base
-        - Configuration
-        - Python API (SdlcClient)
+        - Subcommand routing (SKILL.md)
+        - Stage prompt (references/)
+        - Project profile detection (profiles.md)
+        - Artifact template (templates/)
+        - Checklist / review dimensions
+        - Enterprise overlay
         - Documentation
         - Other
     validations:

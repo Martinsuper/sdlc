@@ -1,244 +1,96 @@
-# `sdlc` — AI-Driven SDLC Orchestration CLI
+# `sdlc` — 提示词驱动的全流程研发编排 Skill
 
-> Automate your entire software development lifecycle — from idea to production — with AI-powered pipeline orchestration.
+> 用一个 Claude Code Skill 覆盖软件研发全生命周期——需求澄清、方案设计、设计评审、编码、测试、上线计划，产物即文件，不依赖任何独立引擎或外部服务。
 
-**Status:** ![Stable](https://img.shields.io/badge/status-stable-green) ![v1.1.0](https://img.shields.io/badge/version-1.1.0-blue) ![GA](https://img.shields.io/badge/release-GA-brightgreen)
-
----
-
-## Features
-
-| Area | Detail |
-|------|--------|
-| **CLI Commands** | 19 commands: `init`, `run`, `status`, `resume`, `stage`, `profile`, `adapter`, `kb`, `rule`, `agent`, `config`, `doctor`, `export`, `import`, `replay`, `trace`, `stats`, `version`, `completion` |
-| **Pipeline Stages** | 12 stages across an 8-step lifecycle (ideation → analysis → design → implementation → testing → review → deployment → monitoring) |
-| **Quality Gates** | 5 gates: PM Review, TL Review, Security Gate, Deploy Approval, Hotfix Emergency |
-| **Rule Engine** | 27 rules across 9 rule sets (coding, python, node, go, rust, frontend, mobile, data, infra) with 4 enforcers |
-| **Built-in Adapters** | 18 technology adapters with auto-detection |
-| **Workflow Profiles** | 14 profiles: `new-feature`, `bug-fix`, `hotfix`, `refactor`, `test`, `infra`, `release`, `revert`, `doc`, `migrate`, `audit`, `idea`, `frontend`, `full-stack` |
-| **Subagents** | 11 built-in AI agents with role-specific prompts |
-| **LLM Providers** | Anthropic + OpenAI with automatic fallback, SQLite cache, cost tracking |
-| **Audit Trail** | 27 event types, JSONL format, full traceability |
-| **State Management** | SQLite (6 tables + 2 views), snapshots, pause/resume |
-| **Python API** | `SdlcClient` for programmatic access |
-| **4-Layer Config** | CLI `--config` > project `.sdlc/` > user `~/.sdlc/` > builtin defaults |
-| **Security** | Command whitelist, no hardcoded secrets, API keys from env vars |
+**形态：** Claude Code Skill（纯提示词） · **交互语言：** 中文
 
 ---
 
-## Quick Start
+## 这是什么
+
+`sdlc` 是一个 Claude Code Skill。它把研发流程中真正有价值的部分——**编排逻辑 + 阶段模板 + 检查清单**——沉淀为提示词，由 Claude Code 本体能力（文件系统、子 agent、工具循环、上下文管理）驱动执行，不再需要单独的 Python CLI、SQLite 状态机或 LLM Provider 配置。
+
+工作方式三条主线：
+
+- **按阶段分工**：每个阶段有独立提示词文件（`references/<阶段>.md`），命中后再按需加载，避免一次性占满上下文。
+- **通用优先**：进入实质阶段前先探测项目画像（后端服务 / 前端 SPA / CLI 库 / 开源项目），据此裁剪模板与检查清单中不适用的章节。
+- **状态即文件**：所有产物落到项目根 `.sdlc/` 下的数字前缀阶段目录，段与段之间靠读上一阶段产物衔接，无隐藏状态库。
+
+---
+
+## 全生命周期
+
+```
+init  →  clarify → design → review → code → test → deploy
+(前置)    (00)      (01)     (02)      (03)   (04)   (05)
+准备      需求澄清   方案设计  设计评审   编码    测试   上线计划
+
+               status —— 横切，任意时刻扫描进度
+```
+
+`init` 是前置准备（codegraph 初始化 + 文档合规整理），非产物阶段。之后流程**按序推进、前置门禁强制**：先有需求文档（PRD）→ 设计 → 评审**通过** → 编码 → 测试 → 上线 checklist；缺前置产物或评审未通过时默认不允许进入下一阶段（用户显式声明知风险可强制跳过）。
+
+---
+
+## 安装
+
+Skill 跨项目通用，建议装到 user 级：
 
 ```bash
-# Install with uv
-uv tool install -e .
+# 复制到 user 级 skill 目录
+cp -r skills/sdlc ~/.claude/skills/sdlc
+```
 
-# Or with pip
-pip install -e .
+若某团队要项目内定制，拷贝到 `<project>/.claude/skills/sdlc/`（project 级优先级更高）。
 
-# Verify installation
-sdlc doctor
-sdlc version
+---
 
-# Initialize a project (scans codebase, detects adapter, builds KB)
-sdlc init
+## 用法
 
-# Run a pipeline
-sdlc run "Add user authentication with JWT"
+在 Claude Code 中通过 `sdlc <阶段>` 子命令或自然语言触发：
 
-# Check pipeline status
-sdlc status
-sdlc status --pipeline <id>
+| 子命令 | 做什么 |
+| --- | --- |
+| `sdlc init`    | 前置准备：codegraph 初始化 + 文档合规检查 + 散落文档归位（先出方案再动手） |
+| `sdlc clarify` | 需求澄清：识别模糊点、追问、固化功能规格 |
+| `sdlc design`  | 方案设计：摸清现有代码，按裁剪后的模板产出设计 |
+| `sdlc review`  | 设计评审：逐维度 checklist 核对，输出风险分级报告 |
+| `sdlc code`    | 编码实现：拆解开发单元，逐单元实现并自检 |
+| `sdlc test`    | 测试：生成测试计划 + 补齐测试代码 + 跑结果 |
+| `sdlc deploy`  | 上线计划：变更范围、配置、回滚步骤、上线后检查清单 |
+| `sdlc status`  | 状态查看：扫描 `.sdlc/` 汇总各阶段进度（只读） |
+
+也可直接给自然语言需求（"帮我按研发流程做完这个需求"），Skill 会从 `clarify` 起逐阶段推进，每阶段结束与你确认再继续。流程按序推进、前置门禁强制：默认不允许跳过前置阶段（如未评审通过不得进入编码），仅在你显式声明知道风险时才放行。
+
+---
+
+## 产物目录
+
+产物统一落到项目根 `.sdlc/`，每阶段一个数字前缀目录：
+
+```
+.sdlc/
+├── 00-context/            # 上下文资料：架构文档、知识库等（非流程产物，供各阶段查阅）
+├── 01-prd/00-requirements.md
+├── 02-design/00-design.md
+├── 03-review/00-review.md
+├── 04-code/00-impl-notes.md
+├── 05-test/00-test-plan.md
+└── 06-deploy/00-release-plan.md
 ```
 
 ---
 
-## Architecture
+## 仓库结构
 
 ```
-CLI (Click, 19 commands)
- └── DependencyContainer
-      ├── RunCoordinator (core)
-      │    ├── EntryDetector    — classify input as feature/bug/hotfix/...
-      │    ├── PipelineBuilder  — assemble stage graph from profile
-      │    └── StageRunner      — execute stages, enforce gates
-      │
-      ├── Adapter layer         — 18 adapters, auto-detect via glob+contains
-      ├── Stage layer           — 12 stages, YAML-defined, catalog-driven
-      ├── Profile layer         — 14 workflow profiles, entry-kind routing
-      ├── Gate layer            — 5 quality gates, trigger-based evaluation
-      ├── Rule layer            — 27 rules, 4 enforcers, exception management
-      │
-      └─ Supporting services
-         ├── KB                 — knowledge base (scanner, fingerprint, reconciler)
-         ├── LLM                — dual-provider (Anthropic+OpenAI) + SQLite cache + CostTracker
-         ├── Subagent           — 11 agents, pool-based dispatch, tool access
-         ├── Audit              — JSONL event logging (27 event types)
-         ├── State              — SQLite persistence, snapshots, pause/resume
-         ├── Integrations       — filesystem, git, http, MCP, shell, skills, whitelist
-         └── Builtin            — YAML templates for stages, rules, gates, subagents
+skills/sdlc/
+├── SKILL.md              # 入口：子命令路由 + 全流程概览
+├── references/           # 各阶段提示词（命中后按需加载）
+├── templates/            # 产物模板（后端/前端/通用设计、评审、测试、上线）
+└── overlays/             # 可选：企业内部规范 overlay（默认关闭）
+roadmap/                  # 产品规划文档
 ```
-
-13 packages: `adapter`, `audit`, `builtin`, `cli`, `core`, `gate`, `integrations`, `kb`, `llm`, `profile`, `rule`, `stage`, `state`, `subagent`, `utils`
-
----
-
-## Adapters
-
-18 built-in technology adapters with auto-detection:
-
-| Adapter | ID | Detect Pattern | Components |
-|---------|----|---------------|------------|
-| DongBoot | `dongboot` | `**/pom.xml` contains `dong-boot-starter` | 8 components (dong-log, dong-thread, dong-dal, dong-cache, dong-mq, dong-web, dong-config, dong-hot-deploy) |
-| JD Spring Boot | `jd-spring-boot` | `**/pom.xml` contains `spring-boot-starter` | 4 components (spring-mvc, spring-data, spring-security, spring-actuator) |
-| Python Flask | `python-flask` | `**/requirements.txt` contains `flask` | 3 components (flask-restful, flask-sqlalchemy, flask-caching) |
-| Python Django | `python-django` | `**/requirements.txt` contains `django` | 4 components (django-rest, django-orm, django-admin, django-auth) |
-| Python FastAPI | `python-fastapi` | `**/requirements.txt` or `**/pyproject.toml` contains `fastapi` | 4 components (uvicorn, pydantic, sqlalchemy, redis) |
-| Node Express | `node-express` | `**/package.json` contains `express` | 3 components (express-router, express-middleware, body-parser) |
-| Node NestJS | `node-nestjs` | `**/package.json` contains `@nestjs/core` | 4 components (nest-modules, nest-guards, nest-interceptors, typeorm) |
-| React | `frontend-react` | `**/package.json` contains `react` | 4 components (react-router, redux, axios, jest) |
-| Vue | `frontend-vue` | `**/package.json` contains `vue` | 4 components (vue-router, vuex, axios, vitest) |
-| Go Gin | `go-gin` | `**/go.mod` contains `gin-gonic/gin` | 3 components (gin-router, gin-middleware, gorm) |
-| Go Kratos | `go-kratos` | `**/go.mod` contains `go-kratos/kratos` | 3 components (kratos-proto, kratos-wire, kratos-config) |
-| Rust Axum | `rust-axum` | `**/Cargo.toml` contains `axum` | 3 components (axum-router, tokio-runtime, sqlx) |
-| Terraform | `infra-terraform` | `**/*.tf` | 2 components (terraform-aws, terraform-k8s) |
-| Android | `mobile-android` | `**/build.gradle` contains `com.android.application` | 4 components (android-activity, android-fragment, retrofit, room) |
-| Flutter | `mobile-flutter` | `**/pubspec.yaml` contains `flutter` | 3 components (flutter-bloc, dio, hive) |
-| iOS | `mobile-ios` | `**/Package.swift` or `**/*.xcodeproj` | 3 components (uikit, alamofire, coredata) |
-| Apache Spark | `data-spark` | `**/pom.xml` contains `spark-core` or `**/requirements.txt` contains `pyspark` | 3 components (spark-sql, spark-streaming, spark-ml) |
-| No Tech | `no-tech` | (none) | 0 components |
-
----
-
-## Profiles
-
-14 built-in workflow profiles:
-
-| Profile | ID | Entry Kinds | Stages | Severity |
-|---------|----|-------------|--------|----------|
-| New Feature | `new-feature` | feature, idea | clarify → design → impl-backend → unit-test → cr → package → deploy → monitor-setup | P2 |
-| Bug Fix | `bug-fix` | bug | clarify → impl-backend → unit-test → cr → package → deploy | P1 |
-| Hotfix | `hotfix` | hotfix | clarify → impl-backend → unit-test → deploy | P0 |
-| Refactor | `refactor` | refactor | clarify → design → impl-backend → unit-test → cr → package → deploy | P2 |
-| Test | `test` | test | clarify → unit-test → cr | P3 |
-| Infra | `infra` | infra | clarify → design → impl-backend → unit-test → deploy → monitor-setup | P1 |
-| Release | `release` | release | clarify → package → deploy → monitor-setup | P1 |
-| Revert | `revert` | revert | clarify → deploy | P0 |
-| Doc | `doc` | doc | clarify | P3 |
-| Migrate | `migrate` | migrate | clarify → design → impl-backend → unit-test → cr → deploy | P1 |
-| Audit | `audit` | audit | clarify → cr | P1 |
-| Idea | `idea` | idea | clarify | P3 |
-| Frontend | `frontend` | feature | clarify → design → impl-frontend → unit-test → cr → deploy | P2 |
-| Full Stack | `full-stack` | feature | clarify → design → impl-backend → impl-frontend → unit-test → cr → package → deploy → monitor-setup | P2 |
-
----
-
-## Configuration
-
-### 4-Layer Config Hierarchy
-
-1. **CLI flag** `--config path/to/config.yaml` (highest priority)
-2. **Project** `.sdlc/config.yaml`
-3. **User** `~/.sdlc/config.yaml`
-4. **Builtin defaults** (lowest priority)
-
-### Config Schema
-
-```yaml
-llm:
-  provider: anthropic          # anthropic | openai
-  model: claude-sonnet-4-20250514
-  api_key_env: ANTHROPIC_API_KEY  # environment variable name
-  base_url: null               # custom endpoint
-  max_tokens: 4096
-  temperature: 0.7
-  timeout: 120.0
-  max_cost_usd: 5.0
-profile:
-  auto_detect: true
-  default: new-feature
-log_level: INFO
-cache_enabled: true
-cache_dir: null
-audit_enabled: true
-no_color: false
-```
-
-### Environment Variables
-
-| Variable | Purpose |
-|----------|---------|
-| `ANTHROPIC_API_KEY` | Anthropic API key |
-| `OPENAI_API_KEY` | OpenAI API key |
-| `SDLC_HOME` | Override default `~/.sdlc/` directory |
-
----
-
-## Python API
-
-```python
-from sdlc import SdlcClient
-
-client = SdlcClient()
-
-# Initialize a project
-result = client.init(path=".")
-
-# Run a pipeline
-result = client.run("Add user authentication with JWT")
-
-# Check status
-status = client.status()
-status = client.status(pipeline_id="abc-123")
-
-# List KB files
-kb = client.kb_list()
-
-# List rules
-rules = client.rule_list(category="security")
-
-# List stages
-stages = client.stage_list()
-
-# Run diagnostics
-checks = client.doctor()
-```
-
----
-
-## Development
-
-```bash
-# Clone and install dev dependencies
-uv sync --extra dev
-
-# Run tests
-uv run pytest tests/ -q
-
-# Run with coverage
-uv run pytest tests/ --cov=sdlc --cov-report=term-missing
-
-# Lint
-uv run ruff check sdlc/ tests/
-
-# Type check
-uv run mypy sdlc/
-```
-
----
-
-## Tech Stack
-
-| Component | Choice |
-|-----------|--------|
-| Language | Python 3.11+ |
-| CLI framework | Click 8.1+ |
-| Data models | Pydantic v2.6+ |
-| YAML handling | ruamel.yaml |
-| Persistence | SQLite |
-| Build system | hatchling |
-| Linting | ruff |
-| Type checking | mypy (strict) |
-| Package manager | uv |
 
 ---
 

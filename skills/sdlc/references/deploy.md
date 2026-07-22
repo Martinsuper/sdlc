@@ -4,14 +4,15 @@
 
 ## 输入
 
-- 设计文档（`.sdlc/01-design/00-design.md`），和/或
+- 设计文档（`.sdlc/02-design/00-design.md`），和/或
 - git 变更（分析 diff 确定变更范围），和/或
 - 用户的变更说明。
 
 ## 前置检查
 
-1. **探测项目画像**：读 `references/profiles.md`，得出上线检查清单启用哪些标签（`[jvm-runtime]`/`[mq]`/`[cache]`/`[enterprise-infra]` 等）。
-2. **分析变更范围**：
+1. **前置门禁——必须有实现基础**：上线 checklist 是流程收尾产物，前提是已有编码产出（代码变更 / `.sdlc/04-code`），通常也应已过测试（`.sdlc/05-test`）。无任何实现就做上线计划属于空转——缺失时默认拦截并提示先完成开发/测试；用户显式声明强制跳过时放行并留痕。
+2. **探测项目画像**：读 `references/profiles.md`，得出上线检查清单启用哪些标签（`[jvm-runtime]`/`[mq]`/`[cache]`/`[enterprise-infra]` 等）。
+3. **分析变更范围**：
    ```bash
    git status
    git diff --stat
@@ -46,14 +47,14 @@
 
 ## 产出
 
-写入 `.sdlc/05-deploy/00-release-plan.md`。顶部元信息块：
+写入 `.sdlc/06-deploy/00-release-plan.md`。顶部元信息块：
 
 ```
 > 上线主题：<title>
 > 版本：<version>
 > 日期：<YYYY-MM-DD>
 > 状态：待评审 / 已通过 / 已上线
-> 关联：.sdlc/01-design/00-design.md
+> 关联：.sdlc/02-design/00-design.md
 ```
 
 ## 交接
