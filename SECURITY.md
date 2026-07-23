@@ -19,7 +19,8 @@ We ask that you give us 90 days to address the issue before any public disclosur
 
 `sdlc` is a **prompt-only Claude Code Skill** — it ships no runtime, no
 network service, and no credential handling of its own. It consists of
-Markdown prompts, templates, and checklists under `skills/sdlc/`. Any
+Markdown prompts, templates, and checklists at the repository root
+(`SKILL.md`, `references/`, `templates/`). Any
 execution (file edits, shell commands, LLM calls) happens through Claude
 Code itself, governed by Claude Code's own permission model and sandbox.
 

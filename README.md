@@ -34,11 +34,11 @@ init  →  clarify → design → review → code → test → deploy
 
 ## 安装
 
-Skill 跨项目通用，建议装到 user 级：
+本仓库即 sdlc skill 本体（`SKILL.md` 在仓库根）。跨项目通用，建议装到 user 级：
 
 ```bash
-# 复制到 user 级 skill 目录
-cp -r skills/sdlc ~/.claude/skills/sdlc
+# 克隆后复制到 user 级 skill 目录
+cp -r . ~/.claude/skills/sdlc
 ```
 
 若某团队要项目内定制，拷贝到 `<project>/.claude/skills/sdlc/`（project 级优先级更高）。
@@ -83,13 +83,15 @@ cp -r skills/sdlc ~/.claude/skills/sdlc
 
 ## 仓库结构
 
+本仓库根即 skill 本体：
+
 ```
-skills/sdlc/
+.
 ├── SKILL.md              # 入口：子命令路由 + 全流程概览
 ├── references/           # 各阶段提示词（命中后按需加载）
 ├── templates/            # 产物模板（后端/前端/通用设计、评审、测试、上线）
-└── overlays/             # 可选：企业内部规范 overlay（默认关闭）
-roadmap/                  # 产品规划文档
+├── overlays/             # 可选：企业内部规范 overlay（默认关闭）
+└── roadmap/              # 产品规划文档（非 skill 运行时内容）
 ```
 
 ---
