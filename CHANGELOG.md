@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2026-07-21
+
+### Changed
+
+- **重大转向：从 Python 编排引擎收敛为纯提示词 Claude Code Skill。** 研发流程的核心价值（编排逻辑 + 阶段模板 + 检查清单）现以提示词形式存放于 `skills/sdlc/`，由 Claude Code 本体能力驱动，不再需要独立 CLI。
+
+### Removed
+
+- 移除 Python 编排引擎（`sdlc/` 源码、`tests/` 测试套件）及其打包/分发/CI 配置（`pyproject.toml`、Homebrew formula、Dockerfile、mkdocs、PyPI/CI workflows）。
+- 移除引擎相关文档（`prd/`、`doc/`、`docs/`）与过程性文件。
+- 下列 v1.x 条目为 Python CLI 的历史记录，保留仅作追溯。
+
 ## [1.1.0] - 2026-06-12
 
 ### Fixed

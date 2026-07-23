@@ -1,20 +1,20 @@
 name: Question
-description: Ask a question about SDLC usage
+description: Ask a question about sdlc skill usage
 labels: ["question"]
 body:
   - type: markdown
     attributes:
       value: |
-        Have a question about SDLC?
-        Before asking, please check the [documentation](https://your-org.github.io/sdlc/)
-        and existing [discussions](https://github.com/your-org/sdlc/discussions).
+        Have a question about the sdlc skill?
+        Before asking, please check the [README](../../README.md), the
+        [Contributing Guide](../../CONTRIBUTING.md), and existing issues.
 
   - type: textarea
     id: question
     attributes:
       label: Your Question
       description: What would you like to know?
-      placeholder: "How do I configure SDLC to use a custom adapter?"
+      placeholder: "How do I enable the enterprise overlay for the design stage?"
     validations:
       required: true
 
@@ -25,26 +25,23 @@ body:
       description: |
         Any relevant context about your setup or what you've already tried.
       placeholder: |
-        - I'm using SDLC v0.4.0
-        - I've tried `sdlc adapter list` but ...
-        - My `.sdlc/config.yaml` contains ...
+        - Install level (user `~/.claude/skills/` or project `.claude/skills/`)
+        - Which subcommand/stage I triggered
+        - What the skill produced vs. what I expected
 
   - type: dropdown
     id: area
     attributes:
       label: Related Area
-      description: Which part of SDLC does your question relate to?
+      description: Which part of the skill does your question relate to?
       options:
         - Installation / Setup
-        - CLI usage
-        - Pipeline execution
-        - Adapters
-        - Rule engine
-        - Quality gates
-        - LLM provider configuration
-        - Knowledge base
-        - Python API (SdlcClient)
-        - Configuration
+        - Subcommand usage
+        - Stage prompts (references/)
+        - Project profile detection
+        - Artifact templates
+        - Checklist / review dimensions
+        - Enterprise overlay
         - Other
     validations:
       required: true
@@ -56,5 +53,5 @@ body:
       options:
         - label: I have searched existing issues and discussions for an answer
           required: true
-        - label: I have read the documentation
+        - label: I have read the README and Contributing Guide
           required: true

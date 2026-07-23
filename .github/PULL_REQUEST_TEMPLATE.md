@@ -23,12 +23,11 @@
 <!-- Mark completed items with an `x`. -->
 
 - [ ] I have read the [Contributing Guide](CONTRIBUTING.md)
-- [ ] My code follows the project's coding standards (checked with `ruff`)
-- [ ] I have added tests that prove my fix is effective or that my feature works
+- [ ] My prompt/template edits keep the stage skeleton (输入 → 前置检查 → 执行 → 产出 → 交接) and use 中文
+- [ ] I verified the change by running the affected stage in a real project
+- [ ] I have attached the produced artifact or output as evidence
+- [ ] Subcommand routing in `SKILL.md` still matches the `references/` files
 - [ ] I have updated the documentation accordingly
-- [ ] I have run `ruff check --fix` and `mypy` with no errors
-- [ ] New and existing unit tests pass locally with my changes
-- [ ] Any dependent changes have been merged and published
 
 ## Additional Notes
 
