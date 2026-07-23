@@ -4,13 +4,15 @@
 
 ## 仓库结构
 
+本仓库根即 skill 本体（`SKILL.md` 在根）：
+
 ```
-skills/sdlc/
+.
 ├── SKILL.md              # 入口：子命令路由 + 全流程概览 + 语言约束
-├── references/           # 各阶段提示词（clarify/design/review/code/test/deploy/status/profiles）
+├── references/           # 各阶段提示词（init/clarify/design/review/code/test/deploy/status/archive/profiles）
 ├── templates/            # 产物模板（design-backend/frontend/generic、review-report、test-plan、release-plan）
-└── overlays/             # 可选：企业内部规范 overlay（默认关闭）
-roadmap/                  # 产品规划文档
+├── overlays/             # 可选：企业内部规范 overlay（默认关闭）
+└── roadmap/              # 产品规划文档（非 skill 运行时内容）
 ```
 
 三层加载模型（progressive disclosure）：
@@ -27,10 +29,10 @@ Skill 无自动化测试，验证靠在真实项目里跑一遍：
 
 ```bash
 # 装到 user 级 skill 目录
-cp -r skills/sdlc ~/.claude/skills/sdlc
+cp -r . ~/.claude/skills/sdlc
 ```
 
-然后在一个样例项目中触发对应阶段（如 `sdlc design`、`sdlc review .sdlc/01-design/00-design.md`），确认：
+然后在一个样例项目中触发对应阶段（如 `sdlc design`、`sdlc review .sdlc/02-design/00-design.md`），确认：
 
 - 子命令路由到正确的 `references/<阶段>.md`。
 - 项目画像探测正确，模板/checklist 裁剪符合预期（通用项目不应被迫填一堆"不涉及"）。

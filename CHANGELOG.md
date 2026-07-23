@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **重大转向：从 Python 编排引擎收敛为纯提示词 Claude Code Skill。** 研发流程的核心价值（编排逻辑 + 阶段模板 + 检查清单）现以提示词形式存放于 `skills/sdlc/`，由 Claude Code 本体能力驱动，不再需要独立 CLI。
+- **重大转向：从 Python 编排引擎收敛为纯提示词 Claude Code Skill。** 研发流程的核心价值（编排逻辑 + 阶段模板 + 检查清单）现以提示词形式存放于仓库根（`SKILL.md` + `references/` + `templates/`），由 Claude Code 本体能力驱动，不再需要独立 CLI。
 
 ### Removed
 
