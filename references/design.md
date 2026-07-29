@@ -4,7 +4,7 @@
 
 ## 输入
 
-- `.sdlc/01-prd/00-requirements.md`（澄清产物，首选），或
+- `.sdlc/01-prd/` 下的需求文档 PRD（澄清产物，文件名为 `00-<需求名>.md`，扫描目录取该产物；多份时列候选让用户选），或
 - 用户直接给的需求描述 / PRD 链接。
 
 ## 前置检查
@@ -15,7 +15,7 @@
    - `web-frontend` → `templates/design-frontend.md`
    - `cli-library` / `oss-generic` → `templates/design-generic.md`
    - full-stack → backend + frontend 两份，或合并。
-3. **前置门禁——必须先有需求文档（PRD）**：确认存在 `.sdlc/01-prd/00-requirements.md`。缺失则**默认拦截**：先跑 clarify 固化需求，或就地补一份精简 PRD 再设计，不允许零文档直接设计。仅当用户显式声明"知道风险、强制跳过澄清"时才放行，并在产出元信息块标注跳过留痕。
+3. **前置门禁——必须先有需求文档（PRD）**：确认 `.sdlc/01-prd/` 下存在需求文档（扫描目录定位 `00-<需求名>.md`，勿硬套固定文件名）。缺失则**默认拦截**：先跑 clarify 固化需求，或就地补一份精简 PRD 再设计，不允许零文档直接设计。仅当用户显式声明"知道风险、强制跳过澄清"时才放行，并在产出元信息块标注跳过留痕。
 
 ## 执行
 
@@ -59,13 +59,13 @@
 
 ## 产出
 
-写入 `.sdlc/02-design/00-design.md`（多份时递增 `02-design-*.md`）。顶部元信息块：
+写入 `.sdlc/02-design/00-<需求名>.md`——`<需求名>` 沿用 PRD 的需求名（与 `01-prd/` 产物同名），**不要用 `design` 这类阶段通用词**（命名规约见 SKILL.md）。同一需求拆多份设计时递增为 `01-<需求名>-<子项>.md`。顶部元信息块：
 
 ```
 > 需求名称：<name>
 > 日期：<YYYY-MM-DD>
 > 状态：待评审
-> 关联：.sdlc/01-prd/00-requirements.md
+> 关联：.sdlc/01-prd/00-<需求名>.md
 > 项目画像：<profile> ｜ 启用章节：<tags>
 ```
 

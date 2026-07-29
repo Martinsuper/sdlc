@@ -46,9 +46,9 @@ find .sdlc -maxdepth 2 -name "*.md" -not -path "*/_archive/*" 2>/dev/null | sort
 📋 SDLC 进度 —— <项目名>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 📚 00 上下文资料 .sdlc/00-context/                        3 份背景资料
-✅ 01 需求文档PRD .sdlc/01-prd/00-requirements.md          已澄清
-✅ 02 方案设计   .sdlc/02-design/00-design.md             已评审
-⚠️ 03 设计评审   .sdlc/03-review/00-review.md             有条件通过（2 个 P1）
+✅ 01 需求文档PRD .sdlc/01-prd/00-用户登录.md              已澄清
+✅ 02 方案设计   .sdlc/02-design/00-用户登录.md            已评审
+⚠️ 03 设计评审   .sdlc/03-review/00-用户登录.md            有条件通过（2 个 P1）
 ⬜ 04 编码       —— 尚未开始
 ⬜ 05 测试       —— 尚未开始
 ⬜ 06 上线计划   —— 尚未开始

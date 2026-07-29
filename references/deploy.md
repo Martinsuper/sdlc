@@ -4,7 +4,7 @@
 
 ## 输入
 
-- 设计文档（`.sdlc/02-design/00-design.md`），和/或
+- 设计文档（`.sdlc/02-design/` 下的 `00-<需求名>.md`），和/或
 - git 变更（分析 diff 确定变更范围），和/或
 - 用户的变更说明。
 
@@ -47,14 +47,14 @@
 
 ## 产出
 
-写入 `.sdlc/06-deploy/00-release-plan.md`。顶部元信息块：
+写入 `.sdlc/06-deploy/00-<需求名>.md`（`<需求名>` 沿用设计的需求名，勿用 `release-plan` 通用词）。顶部元信息块：
 
 ```
 > 上线主题：<title>
 > 版本：<version>
 > 日期：<YYYY-MM-DD>
 > 状态：待评审 / 已通过 / 已上线
-> 关联：.sdlc/02-design/00-design.md
+> 关联：.sdlc/02-design/00-<需求名>.md
 ```
 
 ## 交接

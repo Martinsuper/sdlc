@@ -75,12 +75,12 @@ mkdir -p ~/.claude/commands/sdlc && cp commands/sdlc/*.md ~/.claude/commands/sdl
 ```
 .sdlc/
 ├── 00-context/            # 上下文资料：架构文档、知识库等（非流程产物，供各阶段查阅）
-├── 01-prd/00-requirements.md
-├── 02-design/00-design.md
-├── 03-review/00-review.md
-├── 04-code/00-impl-notes.md
-├── 05-test/00-test-plan.md
-└── 06-deploy/00-release-plan.md
+├── 01-prd/00-用户登录.md      # 文件名用具体需求名，同一需求跨阶段沿用
+├── 02-design/00-用户登录.md
+├── 03-review/00-用户登录.md
+├── 04-code/00-用户登录.md
+├── 05-test/00-用户登录.md
+└── 06-deploy/00-用户登录.md
 ```
 
 `sdlc report` 另出分析报告到 `<数字>-report/`（目录数字接在流程产物之后，如 `07-report/00-结构分析.md`；独立于主流程、按需存在）。
