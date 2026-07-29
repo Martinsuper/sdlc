@@ -34,13 +34,20 @@ init  →  clarify → design → review → code → test → deploy
 
 ## 安装
 
-本仓库即 sdlc skill 本体（`SKILL.md` 在仓库根）。跨项目通用，建议装到 user 级：
+本仓库即 sdlc skill 本体（`SKILL.md` 在仓库根）。跨项目通用，建议装到 user 级。
+
+**方式一：软链接（推荐，本机开发用）**——工作区改动即时生效，无需重复同步，仓库是唯一来源：
 
 ```bash
-# 克隆后复制到 user 级 skill 目录
-cp -r . ~/.claude/skills/sdlc
+# 在仓库根执行；软链用绝对路径，指向本仓库
+ln -s "$PWD" ~/.claude/skills/sdlc
+ln -s "$PWD/commands/sdlc" ~/.claude/commands/sdlc
+```
 
-# 若要用 /sdlc:<阶段> 斜杠命令，另把命令壳装到 user 级 commands 目录
+**方式二：拷贝**——适合不需要跟随本仓库更新的机器：
+
+```bash
+cp -r . ~/.claude/skills/sdlc
 mkdir -p ~/.claude/commands/sdlc && cp commands/sdlc/*.md ~/.claude/commands/sdlc/
 ```
 
