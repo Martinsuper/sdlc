@@ -51,6 +51,12 @@ cp -r . ~/.claude/skills/sdlc
 mkdir -p ~/.claude/commands/sdlc && cp commands/sdlc/*.md ~/.claude/commands/sdlc/
 ```
 
+**internal-client**——internal-client 不跟随符号链接,用同步脚本把 skill 拷过去(只同步 SKILL.md/references/overlays/templates,不带入仓库杂物),改动后需重启 internal-client:
+
+```bash
+scripts/sync-internal-client.sh            # 同步；--dry-run 可先预览
+```
+
 若某团队要项目内定制，拷贝到 `<project>/.claude/skills/sdlc/`（project 级优先级更高）。
 
 ---
