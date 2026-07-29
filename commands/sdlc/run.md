@@ -1,0 +1,19 @@
+---
+description: 全生命周期编排 - 从需求澄清到上线计划,逐阶段推进并在关键节点确认。转调 sdlc skill 端到端驱动。
+argument-hint: [需求描述]
+allowed-tools: Read, Write, Edit, Bash, Skill, mcp__document-reader__read_jd_doc
+---
+
+# SDLC 全生命周期编排
+
+请执行 `sdlc` skill,端到端驱动一个需求走完研发全生命周期。
+
+## 执行方式
+
+1. 通过 Skill 工具调用 `sdlc` skill,按其 SKILL.md 的路由与交互约定工作。
+2. 从 **clarify** 开始,依次推进 clarify → design → review → code → test → deploy。
+3. 每个阶段：先读对应 `references/<阶段>.md` 执行,产物写入 `.sdlc/` 数字前缀阶段目录。
+4. **关键节点暂停确认**（设计后是否评审、编码后是否 code-review、上线前确认人员时间）,不要一口气跑完不给用户干预机会。
+5. 用户输入 `$ARGUMENTS` 作为初始需求描述或 PRD 链接。
+
+> 本命令是薄封装:全流程编排、阶段职责、画像裁剪、overlay 均以 `sdlc` skill 为**单一来源**。流程按序推进、前置门禁强制(需求→设计→评审通过→编码→测试→上线),用户可修改、回退;跳过前置阶段需显式声明知道风险。

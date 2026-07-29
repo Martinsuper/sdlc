@@ -39,6 +39,9 @@ init  →  clarify → design → review → code → test → deploy
 ```bash
 # 克隆后复制到 user 级 skill 目录
 cp -r . ~/.claude/skills/sdlc
+
+# 若要用 /sdlc:<阶段> 斜杠命令，另把命令壳装到 user 级 commands 目录
+mkdir -p ~/.claude/commands/sdlc && cp commands/sdlc/*.md ~/.claude/commands/sdlc/
 ```
 
 若某团队要项目内定制，拷贝到 `<project>/.claude/skills/sdlc/`（project 级优先级更高）。
@@ -59,6 +62,7 @@ cp -r . ~/.claude/skills/sdlc
 | `sdlc test`    | 测试：生成测试计划 + 补齐测试代码 + 跑结果 |
 | `sdlc deploy`  | 上线计划：变更范围、配置、回滚步骤、上线后检查清单 |
 | `sdlc status`  | 状态查看：扫描 `.sdlc/` 汇总各阶段进度（只读） |
+| `sdlc report`  | 项目/代码分析报告：现场扫描代码库做统计度量分析（结构/接口/依赖影响等），产出留档到 `.sdlc/<数字>-report/`（按需运行，独立于主流程） |
 
 也可直接给自然语言需求（"帮我按研发流程做完这个需求"），Skill 会从 `clarify` 起逐阶段推进，每阶段结束与你确认再继续。流程按序推进、前置门禁强制：默认不允许跳过前置阶段（如未评审通过不得进入编码），仅在你显式声明知道风险时才放行。
 
@@ -79,6 +83,8 @@ cp -r . ~/.claude/skills/sdlc
 └── 06-deploy/00-release-plan.md
 ```
 
+`sdlc report` 另出分析报告到 `<数字>-report/`（目录数字接在流程产物之后，如 `07-report/00-结构分析.md`；独立于主流程、按需存在）。
+
 ---
 
 ## 仓库结构
@@ -89,6 +95,7 @@ cp -r . ~/.claude/skills/sdlc
 .
 ├── SKILL.md              # 入口：子命令路由 + 全流程概览
 ├── references/           # 各阶段提示词（命中后按需加载）
+├── commands/sdlc/        # 斜杠命令壳（薄封装，转调 skill 各阶段；装到 ~/.claude/commands/ 后可用 /sdlc:<阶段>）
 ├── templates/            # 产物模板（后端/前端/通用设计、评审、测试、上线）
 ├── overlays/             # 可选：企业内部规范 overlay（默认关闭）
 └── roadmap/              # 产品规划文档（非 skill 运行时内容）
