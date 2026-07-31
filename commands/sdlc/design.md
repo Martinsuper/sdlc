@@ -1,7 +1,5 @@
 ---
 description: 后端/前端/通用设计文档生成 - 探测项目画像并裁剪不适用章节,多图少文字(PlantUML),挂载 overlay 时补全企业专有章节。转调 sdlc skill 的 design 阶段。
-argument-hint: [需求描述 | PRD路径 | 数字前缀如00]
-allowed-tools: Read, Write, Edit, Bash, Skill, mcp__document-reader__read_jd_doc
 ---
 
 # SDLC 方案设计

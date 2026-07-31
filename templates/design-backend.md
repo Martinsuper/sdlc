@@ -1,8 +1,7 @@
 <!--
-后端设计模板 —— 章节结构对齐企业 15 章标准；通用基座 + 标签化条件章节。
+后端设计模板 —— 通用基座 + 标签化条件章节。
 带 [标签] 的章节/行仅在该标签启用时保留（见 references/profiles.md）；
-[enterprise-infra] 默认关闭：internal-sql-checker、存储加密、BI/数仓、internal-gateway、配送主流程、
-internal-mq-client 等企业专有项默认不出现，用通用表述替代；挂载 my-enterprise overlay 时才变回完整版。
+[enterprise-infra] 默认关闭，企业专用工具、系统与流程只允许通过本地 overlay 扩展。
 未启用的章节整段删除，不要留"不涉及"占位。产出保持干净、多图少文字。
 -->
 
@@ -59,7 +58,7 @@ order --> mq : 发履约消息
 
 > 数据结构图或 SQL 形式，标注新增字段/新建表/初始化 SQL。改表结构须评估生产数据量级并经 SQL review。列出 DQL/DML。
 > DML 必须走主键索引；DQL 必须走索引。SQL 经语法/规范校验（sqlfluff 或团队工具）。
-> `[enterprise-infra]` 时追加：经企业 internal-sql-checker 工具语法校验；评估存储加密（加密范围/长度/方案）；评估对 BI/数仓影响；枚举变更走 SOP 评估。
+> `[enterprise-infra]` 时由本地 overlay 追加团队专用的 SQL 校验、加密、数据平台影响与变更流程。
 
 ### 2.1 SQL 清单
 
@@ -197,7 +196,7 @@ stop
 ## 七、MQ 使用 `[mq]`
 
 > 新增标识 topic/queue 与 exchange；改消息体列出所有消费者并标注新旧兼容方案；设计发送/消费异常流程与重试机制。
-> 客户端按团队技术栈选择（Kafka/RabbitMQ/Pulsar/云 MQ）。`[enterprise-infra]` 时用 internal-mq-client/internal-mq-client，注意 compatibleMode 与 schema 一致。
+> 客户端按团队技术栈选择（Kafka/RabbitMQ/Pulsar/云 MQ）。`[enterprise-infra]` 时由本地 overlay 追加团队客户端与兼容性约束。
 
 | MQ 名称 | exchange | 消息体字段文档 | 消费方 | 消息体变更及兼容性 | 发送/消费异常设计 | 是否找全引用 | 引用梳理 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
@@ -278,7 +277,7 @@ stop
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 |  |  |  |  |  |  |  |  |  |
 
-> `[enterprise-infra]` 时追加：是否涉及 internal-gateway且新增超 1000 QPS → 与鉴权服务、网关负责人确认容量。
+> `[enterprise-infra]` 时由本地 overlay 追加内部网关、鉴权与容量确认规则。
 
 ## 十五、评审结果
 

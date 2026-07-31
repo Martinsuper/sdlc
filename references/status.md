@@ -11,7 +11,7 @@
 ## 前置检查
 
 - 无需探测项目画像。
-- 若项目根没有 `.sdlc/` 目录 → 告诉用户当前项目还没走过任何 SDLC 阶段，建议先跑 `sdlc init` 做前置准备（codegraph + 文档整理），再从 `sdlc clarify` 开始。
+- 若项目根没有 `.sdlc/` 目录 → 告诉用户当前项目还没走过任何 SDLC 阶段，建议先跑 OpenCode 的 `/sdlc/init`（或自然语言 `sdlc init`）做前置准备，再从 `/sdlc/clarify` 开始。
 
 ## 执行
 

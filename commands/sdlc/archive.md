@@ -1,7 +1,5 @@
 ---
 description: 需求归档 - 列出可归档需求供选择,把所选需求的全部关联文档搬到 .sdlc/_archive/。转调 sdlc skill 的 archive 阶段。
-argument-hint: [可选:需求名或 slug]
-allowed-tools: Read, Bash, Skill
 ---
 
 # SDLC 需求归档

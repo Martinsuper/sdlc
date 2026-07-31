@@ -1,14 +1,14 @@
 # `sdlc` — 提示词驱动的全流程研发编排 Skill
 
-> 用一个 Claude Code Skill 覆盖软件研发全生命周期——需求澄清、方案设计、设计评审、编码、测试、上线计划，产物即文件，不依赖任何独立引擎或外部服务。
+> 用一个兼容 OpenCode 与 Claude Code 的 Skill 覆盖软件研发全生命周期——需求澄清、方案设计、设计评审、编码、测试、上线计划，产物即文件，不依赖任何独立引擎或外部服务。
 
-**形态：** Claude Code Skill（纯提示词） · **交互语言：** 中文
+**形态：** Agent Skill（纯提示词） · **支持：** OpenCode / Claude Code · **交互语言：** 中文
 
 ---
 
 ## 这是什么
 
-`sdlc` 是一个 Claude Code Skill。它把研发流程中真正有价值的部分——**编排逻辑 + 阶段模板 + 检查清单**——沉淀为提示词，由 Claude Code 本体能力（文件系统、子 agent、工具循环、上下文管理）驱动执行，不再需要单独的 Python CLI、SQLite 状态机或 LLM Provider 配置。
+`sdlc` 是一个兼容 OpenCode 与 Claude Code 的 Agent Skill。它把研发流程中真正有价值的部分——**编排逻辑 + 阶段模板 + 检查清单**——沉淀为提示词，由智能编码客户端的文件系统、子 agent、工具循环与上下文能力驱动执行，不再需要单独的 Python CLI、SQLite 状态机或 LLM Provider 配置。
 
 工作方式三条主线：
 
@@ -36,50 +36,64 @@ init  →  clarify → design → review → code → test → deploy
 
 本仓库即 sdlc skill 本体（`SKILL.md` 在仓库根）。跨项目通用，建议装到 user 级。
 
-**方式一：软链接（推荐，本机开发用）**——工作区改动即时生效，无需重复同步，仓库是唯一来源：
+### OpenCode
+
+推荐使用同步脚本，同时安装 skill 与 `/sdlc/<阶段>` 命令：
 
 ```bash
-# 在仓库根执行；软链用绝对路径，指向本仓库
+scripts/sync-opencode.sh --dry-run  # 可选：预览
+scripts/sync-opencode.sh
+```
+
+默认安装到 `~/.config/opencode/skills/sdlc/` 与 `~/.config/opencode/commands/sdlc/`。可通过 `OPENCODE_CONFIG_DIR` 覆盖配置目录。安装后退出并重启 OpenCode，使用 `/sdlc/init`、`/sdlc/design`、`/sdlc/run` 等命令；OpenCode 不使用 `/sdlc:init` 冒号格式。
+
+本机开发也可使用软链接：
+
+```bash
+mkdir -p ~/.config/opencode/skills ~/.config/opencode/commands
+ln -s "$PWD" ~/.config/opencode/skills/sdlc
+ln -s "$PWD/commands/sdlc" ~/.config/opencode/commands/sdlc
+```
+
+### Claude Code
+
+```bash
+mkdir -p ~/.claude/skills ~/.claude/commands
 ln -s "$PWD" ~/.claude/skills/sdlc
 ln -s "$PWD/commands/sdlc" ~/.claude/commands/sdlc
 ```
 
-**方式二：拷贝**——适合不需要跟随本仓库更新的机器：
+也可将对应目录复制到上述位置。命令文件只使用两端均支持的 `description` 与 `$ARGUMENTS`，由同一份来源维护。
 
-```bash
-cp -r . ~/.claude/skills/sdlc
-mkdir -p ~/.claude/commands/sdlc && cp commands/sdlc/*.md ~/.claude/commands/sdlc/
-```
+### 本地私有扩展
 
-**internal-client**——internal-client 不跟随符号链接,用同步脚本把 skill 拷过去(只同步 SKILL.md/references/overlays/templates,不带入仓库杂物),改动后需重启 internal-client:
+企业内部 overlay、客户端同步脚本及本机配置应只保存在本地，并由 `.gitignore` 排除。公开仓库只维护通用基座。
 
-```bash
-scripts/sync-internal-client.sh            # 同步；--dry-run 可先预览
-```
-
-若某团队要项目内定制，拷贝到 `<project>/.claude/skills/sdlc/`（project 级优先级更高）。
+项目内定制时，OpenCode 放到 `<project>/.opencode/skills/sdlc/` 与 `<project>/.opencode/commands/sdlc/`；Claude Code 放到 `<project>/.claude/skills/sdlc/`。
 
 ---
 
 ## 用法
 
-在 Claude Code 中通过 `sdlc <阶段>` 子命令或自然语言触发：
+OpenCode 使用 `/sdlc/<阶段>`，Claude Code 或自然语言入口可使用 `sdlc <阶段>`：
 
-| 子命令 | 做什么 |
-| --- | --- |
-| `sdlc init`    | 前置准备：codegraph 初始化 + 文档合规检查 + 散落文档归位（先出方案再动手） |
-| `sdlc clarify` | 需求澄清：识别模糊点、追问、固化功能规格 |
-| `sdlc design`  | 方案设计：摸清现有代码，按裁剪后的模板产出设计 |
-| `sdlc review`  | 设计评审：逐维度 checklist 核对，输出风险分级报告 |
-| `sdlc code`    | 编码实现：拆解开发单元，逐单元实现并自检 |
-| `sdlc test`    | 测试：生成测试计划 + 补齐测试代码 + 跑结果 |
-| `sdlc deploy`  | 上线计划：变更范围、配置、回滚步骤、上线后检查清单 |
-| `sdlc status`  | 状态查看：扫描 `.sdlc/` 汇总各阶段进度（只读） |
-| `sdlc report`  | 项目/代码分析报告：现场扫描代码库做统计度量分析（结构/接口/依赖影响等），产出留档到 `.sdlc/<数字>-report/`（按需运行，独立于主流程） |
+| OpenCode 命令 | 自然语言入口 | 做什么 |
+| --- | --- | --- |
+| `/sdlc/init` | `sdlc init` | 前置准备：codegraph 初始化 + 文档合规检查 + 散落文档归位（先出方案再动手） |
+| `/sdlc/clarify` | `sdlc clarify` | 需求澄清：识别模糊点、追问、固化功能规格 |
+| `/sdlc/design` | `sdlc design` | 方案设计：摸清现有代码，按裁剪后的模板产出设计 |
+| `/sdlc/review` | `sdlc review` | 设计评审：逐维度 checklist 核对，输出风险分级报告 |
+| `/sdlc/code` | `sdlc code` | 编码实现：拆解开发单元，逐单元实现并自检 |
+| `/sdlc/test` | `sdlc test` | 测试：生成测试计划 + 补齐测试代码 + 跑结果 |
+| `/sdlc/deploy` | `sdlc deploy` | 上线计划：变更范围、配置、回滚步骤、上线后检查清单 |
+| `/sdlc/status` | `sdlc status` | 状态查看：扫描 `.sdlc/` 汇总各阶段进度（只读） |
+| `/sdlc/report` | `sdlc report` | 项目/代码分析报告：现场扫描代码库做统计度量分析，产出到 `.sdlc/<数字>-report/` |
+| `/sdlc/archive` | `sdlc archive` | 归档已完成需求 |
+| `/sdlc/run` | `sdlc run` | 从需求澄清开始端到端推进完整流程 |
 
 也可直接给自然语言需求（"帮我按研发流程做完这个需求"），Skill 会从 `clarify` 起逐阶段推进，每阶段结束与你确认再继续。流程按序推进、前置门禁强制：默认不允许跳过前置阶段（如未评审通过不得进入编码），仅在你显式声明知道风险时才放行。
 
-**多文档时用数字前缀快捷选择**：产物都按 `<数字>-<需求名>.md` 命名，`design`/`review`/`code`/`test`/`deploy` 除了接收完整路径，也可只给数字前缀——如 `sdlc code 01` 等价于指定本阶段目录下 `01-` 开头的文档（`1`/`01` 通用），省去复制路径；匹配不到或有多份时会列出候选让你选。
+**多文档时用数字前缀快捷选择**：产物都按 `<数字>-<需求名>.md` 命名，`design`/`review`/`code`/`test`/`deploy` 除了接收完整路径，也可只给数字前缀——如 OpenCode 的 `/sdlc/code 01`（或自然语言 `sdlc code 01`）会定位本阶段目录下 `01-` 开头的文档。
 
 ---
 
@@ -110,7 +124,8 @@ scripts/sync-internal-client.sh            # 同步；--dry-run 可先预览
 .
 ├── SKILL.md              # 入口：子命令路由 + 全流程概览
 ├── references/           # 各阶段提示词（命中后按需加载）
-├── commands/sdlc/        # 斜杠命令壳（薄封装，转调 skill 各阶段；装到 ~/.claude/commands/ 后可用 /sdlc:<阶段>）
+├── commands/sdlc/        # 跨客户端斜杠命令壳；OpenCode 中对应 /sdlc/<阶段>
+├── scripts/              # OpenCode 同步脚本
 ├── templates/            # 产物模板（后端/前端/通用设计、评审、测试、上线）
 ├── overlays/             # 可选：企业内部规范 overlay（默认关闭）
 └── roadmap/              # 产品规划文档（非 skill 运行时内容）

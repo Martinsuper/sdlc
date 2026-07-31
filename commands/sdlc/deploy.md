@@ -1,7 +1,5 @@
 ---
 description: 上线计划与检查清单生成 - 分析变更范围,产出配置修改/上线回滚步骤/上线后检查清单,按画像裁剪检查项。转调 sdlc skill 的 deploy 阶段。
-argument-hint: [设计文档路径 | 数字前缀如01 | 变更说明]
-allowed-tools: Read, Write, Edit, Bash, Skill, mcp__document-reader__read_jd_doc
 ---
 
 # SDLC 上线计划

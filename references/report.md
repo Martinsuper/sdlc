@@ -26,7 +26,7 @@
    ```
 
    - 就绪：用 codegraph 系列能力采集，又快又准——`codegraph_files`（文件树+符号数）、`codegraph_search`（找符号）、`codegraph_explore`（读某片区域源码）、`codegraph_callers`/`codegraph_callees`（调用关系）、`codegraph_impact`（变更影响面）。
-   - 未就绪：提示"可先跑 `sdlc init` 建 codegraph 索引，分析会更快更准"，然后**降级**用 `find`/`grep`/Read 做静态扫描，照样产出报告。
+   - 未就绪：提示"可先跑 OpenCode 的 `/sdlc/init codegraph`（或自然语言 `sdlc init codegraph`）建索引，分析会更快更准"，然后**降级**用 `find`/`grep`/Read 做静态扫描，照样产出报告。
 3. **探测项目画像**：读 `references/profiles.md`，据画像决定报告**启用哪些维度**——例如探测到数据库依赖才出「慢 SQL / 数据量」维度（`[db]`），前端项目才出「组件/路由」维度，纯 CLI/库不硬塞 Web 维度。未启用的维度**直接不出现在报告里**，保持干净（复用现有裁剪机制，不重造）。探测不了就问用户一句，不硬猜。
 
 ## 执行

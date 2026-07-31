@@ -17,12 +17,12 @@ We ask that you give us 90 days to address the issue before any public disclosur
 
 ## Scope
 
-`sdlc` is a **prompt-only Claude Code Skill** — it ships no runtime, no
+`sdlc` is a **prompt-only Agent Skill for OpenCode and Claude Code** — it ships no runtime, no
 network service, and no credential handling of its own. It consists of
-Markdown prompts, templates, and checklists at the repository root
-(`SKILL.md`, `references/`, `templates/`). Any
-execution (file edits, shell commands, LLM calls) happens through Claude
-Code itself, governed by Claude Code's own permission model and sandbox.
+Markdown prompts, commands, templates, and checklists at the repository root
+(`SKILL.md`, `commands/`, `references/`, `templates/`). Any
+execution (file edits, shell commands, LLM calls) happens through the active
+coding client, governed by that client's permission model and sandbox.
 
 Security-relevant concerns for this repository are therefore limited to
 the **content** of the prompts, for example:
@@ -36,5 +36,5 @@ the **content** of the prompts, for example:
 - **No unsafe command guidance** — templates/checklists should not tell
   users to run destructive or credential-leaking commands.
 
-Vulnerabilities in Claude Code (the harness that executes this skill)
-should be reported to the Claude Code project, not here.
+Vulnerabilities in OpenCode or Claude Code (the harness that executes this skill)
+should be reported to the corresponding client project, not here.

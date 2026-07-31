@@ -40,7 +40,7 @@
 | `[job]` | 探测到定时任务框架（quartz/xxl-job/celery/cron 封装），或用户确认 | 定时任务设计 |
 | `[frontend-compat]` | 画像含 `web-frontend` | 浏览器/端兼容、埋点、性能预算 |
 | `[jvm-runtime]` | 画像为 JVM 后端 | JVM 内存/GC 类监控与上线检查项 |
-| `[enterprise-infra]` | **默认关闭**。仅当项目显式挂载企业规范 overlay 时启用 | 企业内部专有：内部 SQL 校验工具、内部监控体系(如 internal-monitoring)、内部 RPC 框架实例数(如 internal-rpc)、内部配置中心特定项、数仓/BI 影响、内部网关等 |
+| `[enterprise-infra]` | **默认关闭**。仅当项目显式挂载企业规范 overlay 时启用 | 企业内部专有：SQL 校验工具、监控体系、RPC 框架、配置中心、数据平台影响、内部网关等 |
 
 ---
 
@@ -50,7 +50,7 @@
 
 1. **读 `.sdlc/overlay.yaml`**（项目级配置，不是阶段产物，status 不扫描它）：
    ```yaml
-   name: my-enterprise          # 指向 overlays/<name>/
+   name: my-enterprise          # 指向本地 overlays/<name>/
    enable_tags: [enterprise-infra]
    ```
 2. **无此文件** → 只用通用基座，`[enterprise-infra]` 保持关闭。这是默认路径。
@@ -62,27 +62,23 @@
    - `name` 指向的包不存在 → 警告并降级为纯通用基座，提示"overlay X 未找到，用通用产出"。
    - 多个片段用了相同 `@id` → 报冲突要求改名，不静默覆盖。
 
-> 已内置 overlay：`my-enterprise`（企业内部内部规范，含 internal-sql-checker/存储加密/配送主流程/internal-mq-client/internal-monitoring/internal-gateway等）。项目要用时在 `.sdlc/overlay.yaml` 写 `name: my-enterprise` 即可。
+> 企业 overlay 属于本地私有扩展，不随公开 skill 分发。团队可在 `overlays/<name>/` 自行维护，并通过 `.sdlc/overlay.yaml` 显式启用。
 
 ---
 
-## 三、企业内部专有项的通用化映射
+## 三、企业内部专有项的通用化原则
 
-旧模板里大量企业内部内部概念，一律泛化为通用表述。默认产出用通用表述；只有启用 `[enterprise-infra]` 时才补充内部专有项。
+公开基座只保留通用表述。企业专用工具、域名、系统名、流程名与阈值必须放在本地 overlay 中，不得写入通用模板或公开仓库。
 
-| 旧的内部专有表述 | 通用化后的表述 |
+| 企业专用概念 | 通用化后的表述 |
 | --- | --- |
-| internal-sql-checker SQL 校验 | SQL 经语法/规范校验（如 sqlfluff、或团队内部工具） |
-| 存储加密（企业加密方案/长度工具/枚举变更 SOP） | 敏感字段加密（按团队安全规范），默认剔除具体内部工具 |
-| internal-monitoring 存活/异常监控 | 健康探针 / 错误率 / P99 延迟 |
-| internal-rpc 在线实例数 | 服务实例数（如涉及注册中心） |
-| internal-mq / internal-mq-client / internal-mq-client 消费 | 消息队列消费情况（`[mq]` 控制，客户端按团队技术栈） |
-| Apollo 动态配置 | 配置中心（Apollo / Nacos / 云配置服务） |
-| Jimdb / JED | 缓存 / 存储服务（`[cache]` 控制） |
-| internal-gateway、城市配置后台、配送主流程 | 归入 `[enterprise-infra]`，默认剔除 |
-| 钱相关逻辑（计费/运费/补贴/抽佣/对账）、单号逻辑 | 归入 `[enterprise-infra]`，默认剔除（通用项目按普通业务逻辑处理） |
-| BI / 数仓影响 | 归入 `[enterprise-infra]`，默认剔除 |
-| 双机房流量、NP 挂载 | 多可用区流量对等 / 存储挂载（如涉及） |
+| 内部 SQL 校验平台 | SQL 经语法/规范校验（如 sqlfluff 或团队工具） |
+| 内部加密方案与长度工具 | 敏感字段按团队安全规范加密 |
+| 内部监控平台 | 健康探针 / 错误率 / P99 延迟 |
+| 内部 RPC 与消息组件 | RPC 服务实例数 / 消息队列消费情况 |
+| 内部配置与缓存平台 | 配置中心 / 缓存 / 存储服务 |
+| 内部网关、业务主流程 | 归入 `[enterprise-infra]`，默认剔除 |
+| 数据平台影响 | 数据消费方与兼容性影响 |
 
 ---
 

@@ -1,7 +1,5 @@
 ---
 description: 测试 - 依据设计验收标准与代码变更范围产出测试计划、补齐测试代码并跑出真实结果。转调 sdlc skill 的 test 阶段。
-argument-hint: [可选:代码变更范围 | 设计文档路径 | 数字前缀如01]
-allowed-tools: Read, Write, Edit, Bash, Skill
 ---
 
 # SDLC 测试

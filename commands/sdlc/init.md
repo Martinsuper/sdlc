@@ -1,7 +1,5 @@
 ---
 description: 项目前置准备 - codegraph 初始化 + 文档合规检查 + 散落文档归位(先出方案再动手)。转调 sdlc skill 的 init 阶段。
-argument-hint: [可选:codegraph|docs|check]
-allowed-tools: Read, Write, Edit, Bash, Skill
 ---
 
 # SDLC 项目初始化

@@ -1,7 +1,5 @@
 ---
 description: 设计文档AI评审 - 探测画像后按适用维度逐项检查,输出Pass/Warning/Block与P0-P3风险分级。转调 sdlc skill 的 review 阶段。
-argument-hint: [设计文档路径 | 数字前缀如01]
-allowed-tools: Read, Write, Edit, Bash, Skill, mcp__document-reader__read_jd_doc
 ---
 
 # SDLC 设计评审
@@ -16,4 +14,4 @@ allowed-tools: Read, Write, Edit, Bash, Skill, mcp__document-reader__read_jd_doc
 4. 用户输入 `$ARGUMENTS` 作为被评审的设计文档路径，或数字前缀（如 `01`，选中 `02-design/01-*.md`）。
 5. 产物写入 `.sdlc/03-review/00-<需求名>.md`（`<需求名>` 沿用 PRD/设计的需求名，勿用 `review` 通用词；命名规约见 skill）。
 
-> 本命令是薄封装:评审维度与裁剪规则以 `sdlc` skill 为**单一来源**,此文件不重复维护 checklist,避免旧版企业专用维度对通用项目产生噪音。
+> 本命令是薄封装:评审维度与裁剪规则以 `sdlc` skill 为**单一来源**,此文件不重复维护 checklist,避免企业专用维度对通用项目产生噪音。

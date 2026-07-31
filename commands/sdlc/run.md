@@ -1,7 +1,5 @@
 ---
 description: 全生命周期编排 - 从需求澄清到上线计划,逐阶段推进并在关键节点确认。转调 sdlc skill 端到端驱动。
-argument-hint: [需求描述]
-allowed-tools: Read, Write, Edit, Bash, Skill, mcp__document-reader__read_jd_doc
 ---
 
 # SDLC 全生命周期编排

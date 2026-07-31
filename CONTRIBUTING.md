@@ -1,6 +1,6 @@
 # 贡献指南
 
-感谢你有兴趣为 `sdlc` 做贡献。本项目是一个 **Claude Code Skill（纯提示词）**，没有需要编译或测试的运行时代码——贡献即编辑提示词、模板与检查清单，并在真实项目中验证效果。
+感谢你有兴趣为 `sdlc` 做贡献。本项目是一个兼容 **OpenCode 与 Claude Code 的 Agent Skill（纯提示词）**，没有需要编译的运行时代码——贡献即编辑提示词、模板与检查清单，并在真实项目中验证效果。
 
 ## 仓库结构
 
@@ -10,6 +10,8 @@
 .
 ├── SKILL.md              # 入口：子命令路由 + 全流程概览 + 语言约束
 ├── references/           # 各阶段提示词（init/clarify/design/review/code/test/deploy/status/archive/profiles）
+├── commands/sdlc/        # OpenCode 与 Claude Code 共用的命令壳
+├── scripts/              # 客户端同步脚本
 ├── templates/            # 产物模板（design-backend/frontend/generic、review-report、test-plan、release-plan）
 ├── overlays/             # 可选：企业内部规范 overlay（默认关闭）
 └── roadmap/              # 产品规划文档（非 skill 运行时内容）
@@ -25,14 +27,14 @@
 
 ## 本地验证
 
-Skill 无自动化测试，验证靠在真实项目里跑一遍：
+Skill 无运行时单测，需先做脚本静态检查和安装预览，再在真实项目里跑一遍：
 
 ```bash
-# 装到 user 级 skill 目录
-cp -r . ~/.claude/skills/sdlc
+bash -n scripts/*.sh
+scripts/sync-opencode.sh --dry-run
 ```
 
-然后在一个样例项目中触发对应阶段（如 `sdlc design`、`sdlc review .sdlc/02-design/00-design.md`），确认：
+重启 OpenCode 后，在样例项目中触发对应阶段（如 `/sdlc/design`、`/sdlc/review .sdlc/02-design/00-用户登录.md`），确认：
 
 - 子命令路由到正确的 `references/<阶段>.md`。
 - 项目画像探测正确，模板/checklist 裁剪符合预期（通用项目不应被迫填一堆"不涉及"）。

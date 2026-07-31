@@ -1,7 +1,5 @@
 ---
 description: 需求澄清 - 识别需求模糊点、分两轮追问、固化为结构化功能规格。转调 sdlc skill 的 clarify 阶段。
-argument-hint: [需求描述或PRD链接]
-allowed-tools: Read, Write, Edit, Bash, Skill, mcp__document-reader__read_jd_doc
 ---
 
 # SDLC 需求澄清

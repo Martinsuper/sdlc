@@ -1,7 +1,5 @@
 ---
 description: 查看SDLC进度 - 扫描 .sdlc/ 下各数字前缀阶段目录,汇总研发进度到哪一步。转调 sdlc skill 的 status 阶段。
-argument-hint: [可选:阶段名 design|review|deploy]
-allowed-tools: Read, Bash, Skill
 ---
 
 # SDLC 状态查看

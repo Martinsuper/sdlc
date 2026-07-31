@@ -1,7 +1,5 @@
 ---
 description: 生成项目/代码分析报告 - 现场扫描代码库做统计度量分析（结构/接口/依赖影响等），产出留档到 .sdlc/<数字>-report/。转调 sdlc skill 的 report 阶段。
-argument-hint: [可选:主题 structure|api|deps|complexity 或自然语言]
-allowed-tools: Read, Write, Edit, Bash, Skill, mcp__codegraph__codegraph_explore, mcp__codegraph__codegraph_files, mcp__codegraph__codegraph_search, mcp__codegraph__codegraph_callers, mcp__codegraph__codegraph_callees, mcp__codegraph__codegraph_impact
 ---
 
 # SDLC 项目/代码分析报告
